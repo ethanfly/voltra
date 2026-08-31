@@ -248,52 +248,6 @@ export function defaultUIState(): UIState {
   }
 }
 
-// ============================================================
-// 以下为 v0.1 旧面板临时使用的类型（阶段 5 重写请求编辑器后删除）
-// ============================================================
-
-/** 旧版请求模型：与绑定层 HTTPRequest 同形（数组收紧为非空），直接透传 SendRequest */
-export interface LegacyHTTPRequest {
-  method: string
-  url: string
-  headers: KVPair[]
-  query: KVPair[]
-  body: string
-  bodyType: string
-  rawLang: string
-  urlEncoded: KVPair[]
-  formData: FormField[]
-  binaryPath: string
-  graphql: GraphQLBody | null
-  timeoutMs: number
-  followRedirects: boolean
-  maxRedirects: number
-  insecureSkipTlsVerify: boolean
-  sendCookies: boolean
-}
-
-/** 旧版空请求工厂（阶段 5 后由 Request + newRequest() 取代） */
-export function emptyRequest(): LegacyHTTPRequest {
-  return {
-    method: 'GET',
-    url: '',
-    headers: [{ key: '', value: '', enabled: true }],
-    query: [{ key: '', value: '', enabled: true }],
-    body: '',
-    bodyType: 'none',
-    rawLang: 'text',
-    urlEncoded: [{ key: '', value: '', enabled: true }],
-    formData: [],
-    binaryPath: '',
-    graphql: null,
-    timeoutMs: 30000,
-    followRedirects: true,
-    maxRedirects: 10,
-    insecureSkipTlsVerify: false,
-    sendCookies: false,
-  }
-}
-
 // Go 侧 WSService 通过 Events 推送的事件负载（生成器不产出：未出现在方法签名中），
 // 字段名与 Go 侧 WSMessageEvent / WSStatusEvent 的 json tag 一致
 export interface WSMessageEvent {

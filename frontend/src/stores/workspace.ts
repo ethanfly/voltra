@@ -109,6 +109,25 @@ export function isDescendant(project: Project, ancestorId: ID, id: ID): boolean 
   return walk(anc.items)
 }
 
+/** 节点的祖先链（从最外层集合到直接父级），用于 auth 继承 / 公共 header 合并 */
+export function nodeAncestors(project: Project, id: ID): (Collection | Folder)[] {
+  const walk = (items: TreeNode[], chain: (Collection | Folder)[]): (Collection | Folder)[] | null => {
+    for (const n of items) {
+      if (n.id === id) return chain
+      if (n.kind === 'folder') {
+        const hit = walk(n.items, [...chain, n])
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  for (const c of project.collections) {
+    const hit = walk(c.items, [c])
+    if (hit) return hit
+  }
+  return []
+}
+
 /** 请求 id → { project, node }（跨项目查找，历史还原等场景用） */
 export function findRequest(id: ID): { project: Project; node: Request } | null {
   for (const p of workspace.projects) {

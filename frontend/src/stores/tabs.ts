@@ -46,11 +46,12 @@ export function openRequest(request: Request, opts?: { fromHistory?: boolean }):
       return existing
     }
   }
+  // 历史还原的是快照副本（即使原请求仍在树中），按未保存处理，Cmd+S 另存
   const tab: LiveTab = {
     tabId: uid(),
     request,
     dirty: false,
-    savedInTree: isSavedInTree(request),
+    savedInTree: opts?.fromHistory ? false : isSavedInTree(request),
   }
   tabs.tabs.push(tab)
   tabs.activeTabId = tab.tabId

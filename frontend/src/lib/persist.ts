@@ -250,6 +250,13 @@ async function flushSaveInner(kind: SaveKind) {
   }
 }
 
+/** 立即落盘单类数据，跳过防抖（Cmd+S / 保存按钮用） */
+export async function flushNow(kind: SaveKind) {
+  const t = timers.get(kind)
+  if (t !== undefined) window.clearTimeout(t)
+  await flushSave(kind)
+}
+
 /** 立即落盘所有待保存项（退出前 / 用户主动保存时调用） */
 export async function flushAll() {
   const kinds = [...new Set<SaveKind>([...timers.keys(), ...pending])]

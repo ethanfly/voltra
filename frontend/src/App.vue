@@ -8,40 +8,24 @@ import TabStrip from './components/shell/TabStrip.vue'
 import StatusBar from './components/shell/StatusBar.vue'
 import Splitter from './components/common/Splitter.vue'
 import EmptyState from './components/common/EmptyState.vue'
-import RequestPanel from './components/RequestPanel.vue'
+import RequestEditor from './components/request/RequestEditor.vue'
 import ResponsePanel from './components/ResponsePanel.vue'
 import WSPanel from './components/WSPanel.vue'
 import { bootstrap } from './lib/persist'
-import { getBridge, flushBridge } from './lib/legacy-bridge'
 import { tabs, activeRequest, activeTab, responses } from './stores/tabs'
 import { uiState, setSplitRatio } from './stores/ui-state'
-import type { HTTPResponseModel, LegacyHTTPRequest } from './types/models'
+import type { HTTPResponseModel } from './types/models'
 
 onMounted(() => {
   void bootstrap()
 })
 
-// ---- 编辑区（过渡：旧面板 + legacy 桥，阶段 5/6 替换为 RequestEditor/ResponseViewer） ----
+// ---- 编辑区（阶段 6 把 ResponsePanel 换成 ResponseViewer） ----
 const editorArea = ref<HTMLElement | null>(null)
-const legacyReq = ref<LegacyHTTPRequest | null>(null)
-
-watch(
-  activeRequest,
-  (r, old) => {
-    if (old) flushBridge(old)
-    legacyReq.value = r ? getBridge(r) : null
-  },
-  { immediate: true },
-)
 
 const activeResponse = computed<HTTPResponseModel | null>(
   () => (tabs.activeTabId ? (responses[tabs.activeTabId] ?? null) : null),
 )
-
-function onResp(resp: HTTPResponseModel) {
-  const t = activeTab.value
-  if (t) responses[t.tabId] = resp
-}
 
 function onSplit(delta: number) {
   const h = editorArea.value?.clientHeight
@@ -59,9 +43,9 @@ function onSplit(delta: number) {
       <div class="main-col">
         <TabStrip />
         <div ref="editorArea" class="editor-area">
-          <template v-if="activeRequest && activeRequest.protocol === 'http' && legacyReq">
+          <template v-if="activeTab && activeTab.request.protocol === 'http'">
             <div class="pane req-pane" :style="{ height: uiState.splitRatio * 100 + '%' }">
-              <RequestPanel :request="legacyReq" @response="onResp" />
+              <RequestEditor :tab="activeTab" />
             </div>
             <Splitter axis="y" @resize="onSplit" />
             <div class="pane resp-pane">
@@ -114,8 +98,7 @@ function onSplit(delta: number) {
   flex-direction: column;
 }
 .req-pane {
-  padding: 16px 20px;
-  border-bottom: 0;
+  overflow: hidden;
 }
 .resp-pane {
   flex: 1;
