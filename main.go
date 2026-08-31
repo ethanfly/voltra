@@ -38,6 +38,8 @@ func main() {
 
 	// WSService 需要引用 app 实例才能向前端推送事件（收到消息/断开连接等）
 	wsService.BindApp(app)
+	// StorageService 需要 app 实例才能弹出原生文件对话框（PickFile/SaveFile）
+	storageService.BindApp(app)
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",

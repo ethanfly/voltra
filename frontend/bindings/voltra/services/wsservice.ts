@@ -9,6 +9,7 @@
  *   - 每个连接用一个 connID（uuid）标识，前端通过 connID 来发送消息 / 关闭连接
  *   - Go 侧收到消息后，通过 Wails 的事件系统主动推送给前端（"ws:message"事件），
  *     而不是让前端轮询，这样更符合 WebSocket 的双向实时特性
+ *   - 支持自动重连（复用原 connID，前端无感）与心跳（协议 Ping 或定时文本）
  * @module
  */
 
@@ -33,7 +34,7 @@ export function BindApp(app: application$0.App | null): $CancellablePromise<void
 }
 
 /**
- * Close 主动关闭指定连接
+ * Close 主动关闭指定连接（包括中止进行中的自动重连）
  */
 export function Close(connID: string): $CancellablePromise<void> {
     return $Call.ByID(11571957, connID);
@@ -41,10 +42,10 @@ export function Close(connID: string): $CancellablePromise<void> {
 
 /**
  * Connect 建立一个新的 WebSocket 连接，返回 connID 给前端后续引用
- * headers 用于自定义握手请求头，例如鉴权 token
+ * headers 用于自定义握手请求头（例如鉴权 token），opts 控制重连与心跳
  */
-export function Connect(url: string, headers: $models.KVPair[] | null): $CancellablePromise<string> {
-    return $Call.ByID(6186835, url, headers);
+export function Connect(url: string, headers: $models.KVPair[] | null, opts: $models.WSConnectOptions): $CancellablePromise<string> {
+    return $Call.ByID(6186835, url, headers, opts);
 }
 
 /**
@@ -59,4 +60,25 @@ export function ListConnections(): $CancellablePromise<string[] | null> {
  */
 export function Send(connID: string, message: string): $CancellablePromise<void> {
     return $Call.ByID(381669065, connID, message);
+}
+
+/**
+ * SendBinary 向指定连接发送一条二进制消息（base64 编码传入）
+ */
+export function SendBinary(connID: string, base64Data: string): $CancellablePromise<void> {
+    return $Call.ByID(2534497064, connID, base64Data);
+}
+
+/**
+ * SetAutoReconnect 运行时切换自动重连开关（影响之后的断线行为）
+ */
+export function SetAutoReconnect(connID: string, enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1329660975, connID, enabled);
+}
+
+/**
+ * SetHeartbeat 运行时切换心跳开关
+ */
+export function SetHeartbeat(connID: string, enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2743212999, connID, enabled);
 }

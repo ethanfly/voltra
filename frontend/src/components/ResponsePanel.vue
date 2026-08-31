@@ -10,7 +10,7 @@
       <div class="tabs">
         <button :class="['tab', { active: activeTab === 'Body' }]" @click="activeTab = 'Body'">Body</button>
         <button :class="['tab', { active: activeTab === 'Headers' }]" @click="activeTab = 'Headers'">
-          Headers ({{ response.headers.length }})
+          Headers ({{ response.headers?.length ?? 0 }})
         </button>
       </div>
       <pre v-if="activeTab === 'Body'" class="response-body">{{ response.body }}</pre>

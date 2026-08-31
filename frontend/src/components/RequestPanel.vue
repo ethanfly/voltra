@@ -31,18 +31,30 @@
       <KvEditor v-if="activeTab === 'Query'" v-model="request.query" />
       <KvEditor v-else-if="activeTab === 'Headers'" v-model="request.headers" />
       <div v-else-if="activeTab === 'Body'" class="body-editor">
-        <select v-model="request.bodyType" class="body-type-select">
-          <option value="none">none</option>
-          <option value="json">JSON</option>
-          <option value="x-www-form-urlencoded">x-www-form-urlencoded</option>
-          <option value="raw">raw</option>
-        </select>
+        <div class="body-type-row">
+          <select v-model="request.bodyType" class="body-type-select">
+            <option value="none">none</option>
+            <option value="raw">raw</option>
+            <option value="urlencoded">x-www-form-urlencoded</option>
+          </select>
+          <select
+            v-if="request.bodyType === 'raw'"
+            v-model="request.rawLang"
+            class="body-type-select"
+          >
+            <option value="json">json</option>
+            <option value="text">text</option>
+            <option value="xml">xml</option>
+            <option value="html">html</option>
+          </select>
+        </div>
         <textarea
-          v-if="request.bodyType !== 'none'"
+          v-if="request.bodyType === 'raw'"
           v-model="request.body"
           class="body-textarea"
           placeholder="请求体内容"
         ></textarea>
+        <KvEditor v-else-if="request.bodyType === 'urlencoded'" v-model="request.urlEncoded" />
       </div>
     </div>
   </div>
@@ -67,6 +79,7 @@ async function onSend() {
   loading.value = true
   try {
     // 对应 Go 侧 HTTPService.SendRequest 方法，由 wails 自动生成的绑定负责跨语言调用
+    // props.request 已是绑定层 HTTPRequest 完整形状，直接透传
     const resp: HTTPResponseModel = await HTTPService.SendRequest(props.request)
     emit('response', resp)
   } catch (err) {
@@ -75,9 +88,13 @@ async function onSend() {
       status: '',
       headers: [],
       body: '',
+      bodyEncoding: 'utf8',
+      contentType: '',
       sizeBytes: 0,
       durationMs: 0,
       error: String(err),
+      errorKind: 'other',
+      timings: { dnsMs: 0, tcpMs: 0, tlsMs: 0, ttfbMs: 0, downloadMs: 0 },
     })
   } finally {
     loading.value = false
@@ -147,6 +164,10 @@ async function onSend() {
 .body-editor {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+.body-type-row {
+  display: flex;
   gap: 8px;
 }
 .body-type-select {

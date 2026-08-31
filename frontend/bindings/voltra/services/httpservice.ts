@@ -15,7 +15,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
- * SendRequest 是暴露给前端的核心方法，前端调用 HTTPService.SendRequest(req) 即可发起请求
+ * SendRequest 发送请求。
+ * ctx 由 Wails 运行时自动注入（生成器会跳过该参数，前端签名不变），
+ * 前端调用 CancellablePromise.cancel() 时 ctx 被取消，请求随之中断
  */
 export function SendRequest(req: $models.HTTPRequest): $CancellablePromise<$models.HTTPResponse> {
     return $Call.ByID(3739269508, req);

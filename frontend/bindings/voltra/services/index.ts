@@ -11,7 +11,11 @@ export {
 };
 
 export type {
+    FormField,
+    GraphQLBody,
     HTTPRequest,
     HTTPResponse,
-    KVPair
+    KVPair,
+    ResponseTimings,
+    WSConnectOptions
 } from "./models.js";

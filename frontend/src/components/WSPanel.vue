@@ -59,7 +59,8 @@ onMounted(() => {
   offMessage = Events.On('ws:message', (evt: { data: WSMessageEvent }) => {
     const data = evt.data
     if (data.connId === connId.value) {
-      log.value.push({ dir: 'in', text: data.message })
+      // Go 侧对收发都会推 ws:message（Direction: in | out），这里统一按 direction 展示
+      log.value.push({ dir: data.direction === 'out' ? 'out' : 'in', text: data.message })
     }
   })
   offStatus = Events.On('ws:status', (evt: { data: WSStatusEvent }) => {
@@ -82,10 +83,15 @@ async function onConnect() {
   if (!url.value) return
   connecting.value = true
   try {
-    // 对应 Go 侧 WSService.Connect 方法
-    const id: string = await WSService.Connect(url.value, [])
+    // 对应 Go 侧 WSService.Connect 方法；重连/心跳开关在 v0.2 完整版里暴露给用户
+    const id: string = await WSService.Connect(url.value, [], {
+      autoReconnect: false,
+      reconnectIntervalMs: 0,
+      heartbeatEnabled: false,
+      heartbeatIntervalMs: 0,
+      heartbeatMessage: '',
+    })
     connId.value = id
-    log.value.push({ dir: 'sys', text: '连接已建立' })
   } catch (err) {
     log.value.push({ dir: 'sys', text: `连接失败: ${String(err)}` })
   } finally {
@@ -101,8 +107,8 @@ async function onDisconnect() {
 
 async function onSendMessage() {
   if (!connId.value || !messageText.value) return
+  // 发送后的 "out" 日志由 Go 侧 ws:message 事件统一推送，本地不再重复记录
   await WSService.Send(connId.value, messageText.value)
-  log.value.push({ dir: 'out', text: messageText.value })
   messageText.value = ''
 }
 </script>
