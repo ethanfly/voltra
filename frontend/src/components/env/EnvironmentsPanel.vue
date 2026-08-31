@@ -2,8 +2,9 @@
 // 环境面板：环境选择/新建/重命名/删除 + 三级变量表（环境级 / 项目级 / 全局）
 // 变量行在 VarTable 中原地编辑；敏感值 password 打码、可点眼切换
 import { computed, ref } from 'vue'
-import { Plus, Trash2, Pencil } from 'lucide-vue-next'
+import { Plus, Trash2, Pencil, Upload, Download } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import VarTable from './VarTable.vue'
 import {
   env,
@@ -13,6 +14,9 @@ import {
   removeEnvFromProject,
 } from '../../stores/env'
 import { currentProject } from '../../stores/workspace'
+import { StorageService } from '../../api/backend'
+import { parsePostmanEnvironment } from '../../lib/postman'
+import { exportPostmanEnvironments } from '../../lib/postman-export'
 import { scheduleSave } from '../../lib/persist'
 import { t } from '../../locales/zh-CN'
 
@@ -55,6 +59,45 @@ function endRename() {
 function onRemoveEnv() {
   if (currentEnv.value) removeEnvFromProject(currentEnv.value.id)
 }
+
+// ---------- Postman 环境导入 / 导出 ----------
+const envError = ref<string | null>(null)
+
+async function onImportEnv() {
+  const pr = p.value
+  if (!pr) return
+  try {
+    const path = await StorageService.PickFile()
+    if (!path) return
+    const text = await StorageService.ReadFile(path)
+    const r = parsePostmanEnvironment(text)
+    if (!r.ok) {
+      envError.value = r.error
+      return
+    }
+    // 同名环境覆盖变量，否则新增；globals 并入全局变量（已有 key 不覆盖）
+    for (const e of r.environments) {
+      const hit = pr.environments.find((x) => x.name === e.name)
+      if (hit) hit.variables = e.variables
+      else pr.environments.push(e)
+    }
+    if (r.globals.length) {
+      for (const g of r.globals) {
+        if (!env.globalVars.some((x) => x.key === g.key)) env.globalVars.push(g)
+      }
+      scheduleSave('env')
+    }
+    commit()
+  } catch (e) {
+    envError.value = String(e)
+  }
+}
+
+async function onExportEnv() {
+  const pr = p.value
+  if (!pr) return
+  await StorageService.SaveFile('voltra-environments.json', exportPostmanEnvironments(pr.environments, env.globalVars))
+}
 </script>
 
 <template>
@@ -95,6 +138,12 @@ function onRemoveEnv() {
         <button class="ep-act" :title="L.dialog.envNew" @click="onAddEnv">
           <Plus :size="12" />
         </button>
+        <button class="ep-act" :title="L.env.importEnv" @click="onImportEnv">
+          <Upload :size="12" />
+        </button>
+        <button class="ep-act" :title="L.env.exportEnv" @click="onExportEnv">
+          <Download :size="12" />
+        </button>
       </div>
 
       <!-- 环境下拉（切换） -->
@@ -124,6 +173,14 @@ function onRemoveEnv() {
         <summary>{{ L.env.globalVars }}（{{ env.globalVars.length }}）</summary>
         <VarTable :vars="env.globalVars" :on-commit="commitGlobal" />
       </details>
+
+      <ConfirmDialog
+        v-if="envError"
+        :title="L.dialog.importFailed"
+        :message="envError"
+        @confirm="envError = null"
+        @cancel="envError = null"
+      />
     </template>
   </div>
 </template>

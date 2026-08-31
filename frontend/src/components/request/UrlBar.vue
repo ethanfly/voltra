@@ -5,8 +5,9 @@
 // {{变量}} 高亮（REQ-2/ENV-4）：镜像里渲染分段 span（已定义=品牌色，未定义=红色波浪线）；
 // 悬浮值（ENV-5）放输入框 title（镜像 pointer-events:none，无法独立悬浮）
 import { computed, ref } from 'vue'
-import { Save, Send, Loader2, X } from 'lucide-vue-next'
+import { Save, Send, Loader2, X, FileTerminal } from 'lucide-vue-next'
 import MethodPicker from './MethodPicker.vue'
+import CurlDialog from './CurlDialog.vue'
 import type { Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 import { segmentVars } from '../../lib/vars'
@@ -60,6 +61,19 @@ const mirrorSegs = computed(() =>
   })),
 )
 const urlTitle = computed(() => varTitle(props.request.url))
+
+// 粘贴 cURL：解析后覆盖当前请求（名字保留，仍是同一标签/节点）
+const showCurl = ref(false)
+function applyCurl(req: Request) {
+  props.request.method = req.method
+  props.request.url = req.url
+  props.request.params = req.params
+  props.request.headers = req.headers
+  props.request.body = req.body
+  props.request.auth = req.auth
+  props.request.settings = { ...props.request.settings, ...req.settings }
+  showCurl.value = false
+}
 </script>
 
 <template>
@@ -86,6 +100,9 @@ const urlTitle = computed(() => varTitle(props.request.url))
         @scroll="syncScroll"
       />
     </div>
+    <button class="icon-btn" :title="L.request.pasteCurl" @click="showCurl = true">
+      <FileTerminal :size="14" />
+    </button>
     <button class="icon-btn" :title="L.request.save" @click="emit('save')">
       <Save :size="14" />
     </button>
@@ -96,6 +113,7 @@ const urlTitle = computed(() => varTitle(props.request.url))
       <Loader2 v-if="sending" :size="13" class="spin" />
       <Send v-else :size="13" /> {{ L.request.send }}
     </button>
+    <CurlDialog v-if="showCurl" :request="request" @apply="applyCurl" @close="showCurl = false" />
   </div>
 </template>
 

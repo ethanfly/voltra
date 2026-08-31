@@ -178,6 +178,24 @@ func (s *StorageService) PickFile() (string, error) {
 		PromptForSingleSelection()
 }
 
+// ReadFile 读取任意路径文件的内容（与 PickFile 配对，用于导入 Postman 集合/环境等）。
+// 限制 10MB，防止超大文件拖垮内存
+func (s *StorageService) ReadFile(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %w", err)
+	}
+	const maxImportBytes = 10 << 20
+	if info.Size() > maxImportBytes {
+		return "", fmt.Errorf("文件过大（超过 10MB）: %s", path)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %w", err)
+	}
+	return string(content), nil
+}
+
 // SaveFile 弹出原生"保存文件"对话框并把 data 写入所选路径，
 // defaultName 为建议文件名（含扩展名）。
 // 返回值：成功 → (所选路径, nil)；用户取消 → ("", nil)；失败 → ("", err)

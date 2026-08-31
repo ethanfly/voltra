@@ -110,6 +110,14 @@ export function QuarantineCorruptFile(filename: string): $CancellablePromise<voi
 }
 
 /**
+ * ReadFile 读取任意路径文件的内容（与 PickFile 配对，用于导入 Postman 集合/环境等）。
+ * 限制 10MB，防止超大文件拖垮内存
+ */
+export function ReadFile(path: string): $CancellablePromise<string> {
+    return $Call.ByID(1682321122, path);
+}
+
+/**
  * SaveCollections 保存旧版接口集合数据
  */
 export function SaveCollections(data: string): $CancellablePromise<void> {

@@ -2,11 +2,13 @@
 // 接口集合面板：搜索（平铺+面包屑+高亮）/ 树（仅渲染展开子级）/
 // 集合行（内联重命名·拖拽排序·右键）/ 空状态三按钮
 import { computed, ref } from 'vue'
-import { Search, Plus, FilePlus2, FolderPlus, Folder, Trash2, ChevronDown, ChevronRight } from 'lucide-vue-next'
+import { Search, Plus, FilePlus2, FolderPlus, Folder, Trash2, ChevronDown, ChevronRight, Upload, Download } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import Dropdown from '../common/Dropdown.vue'
 import TreeNodeRow from './TreeNodeRow.vue'
+import PostmanImportDialog from './PostmanImportDialog.vue'
 import {
   currentProject,
   addCollection,
@@ -20,6 +22,9 @@ import {
 } from '../../stores/workspace'
 import { openRequest } from '../../stores/tabs'
 import { setExpanded, toggleExpanded, isExpanded } from '../../stores/ui-state'
+import { StorageService } from '../../api/backend'
+import { parsePostman, type PostmanImportResult } from '../../lib/postman'
+import { exportPostmanCollection } from '../../lib/postman-export'
 import {
   dragNodeId,
   dragIsCollection,
@@ -227,6 +232,53 @@ function doDelete() {
   if (d.isCollection) removeCollection(d.id)
   else removeNode(d.id)
 }
+
+// ---------- 导入 / 导出 ----------
+const pendingImport = ref<Extract<PostmanImportResult, { ok: true }> | null>(null)
+const importError = ref<string | null>(null)
+
+async function onImport() {
+  if (!p.value) return
+  try {
+    const path = await StorageService.PickFile()
+    if (!path) return
+    const text = await StorageService.ReadFile(path)
+    const r = parsePostman(text)
+    if (!r.ok) {
+      importError.value = r.error
+      return
+    }
+    pendingImport.value = r
+  } catch (e) {
+    importError.value = String(e)
+  }
+}
+
+function confirmImport() {
+  const r = pendingImport.value
+  const pr = currentProject.value
+  pendingImport.value = null
+  if (!r || !pr) return
+  pr.collections.push(r.collection)
+  for (const v of r.variables) {
+    if (!pr.variables.some((x) => x.key === v.key)) pr.variables.push(v)
+  }
+  pr.updatedAt = Date.now()
+  scheduleSave('projects')
+  setExpanded(r.collection.id, true)
+}
+
+async function onExportPostman() {
+  const pr = currentProject.value
+  if (!pr) return
+  await StorageService.SaveFile(pr.name + '.postman_collection.json', exportPostmanCollection(pr))
+}
+
+async function onExportProject() {
+  const pr = currentProject.value
+  if (!pr) return
+  await StorageService.SaveFile(pr.name + '.voltra.json', JSON.stringify(pr, null, 2))
+}
 </script>
 
 <template>
@@ -235,10 +287,24 @@ function doDelete() {
     <EmptyState v-if="!p" :title="L.tree.empty" :hint="L.tree.noProjectHint" />
 
     <template v-else>
-      <!-- 搜索框 -->
+      <!-- 搜索框 + 导入/导出 -->
       <div class="cp-search">
         <Search :size="12" />
         <input v-model="query" class="cp-search-input" :placeholder="L.tree.searchPlaceholder" />
+        <button class="cp-act" :title="L.tree.importPostman" @click="onImport">
+          <Upload :size="12" />
+        </button>
+        <Dropdown>
+          <template #trigger>
+            <button class="cp-act" :title="L.common.download">
+              <Download :size="12" />
+            </button>
+          </template>
+          <template #default="{ close }">
+            <button class="cp-menu-item" @click="onExportPostman(); close()">{{ L.tree.exportPostman }}</button>
+            <button class="cp-menu-item" @click="onExportProject(); close()">{{ L.tree.exportProject }}</button>
+          </template>
+        </Dropdown>
       </div>
 
       <!-- 空状态 -->
@@ -362,6 +428,20 @@ function doDelete() {
       @confirm="doDelete"
       @cancel="pendingDelete = null"
     />
+
+    <PostmanImportDialog
+      v-if="pendingImport"
+      :result="pendingImport"
+      @confirm="confirmImport"
+      @close="pendingImport = null"
+    />
+    <ConfirmDialog
+      v-if="importError"
+      :title="L.dialog.importFailed"
+      :message="importError"
+      @confirm="importError = null"
+      @cancel="importError = null"
+    />
   </div>
 </template>
 
@@ -392,6 +472,39 @@ function doDelete() {
   background: transparent;
   color: var(--text);
   font-size: 12px;
+}
+.cp-act {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cp-act:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.cp-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cp-menu-item:hover {
+  background: var(--bg-sunken);
 }
 .cp-nohit {
   padding: 16px 12px;
