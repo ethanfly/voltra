@@ -1,0 +1,55 @@
+// UI 状态 store（ui-state.json：侧栏宽度、分栏比例、展开节点、WS 常用片段）
+import { reactive } from 'vue'
+import type { ID, WsSnippet } from '../types/models'
+import { uid } from '../types/models'
+import { scheduleSave } from '../lib/persist'
+
+export const SIDEBAR_MIN = 240
+export const SIDEBAR_MAX = 480
+
+export const uiState = reactive({
+  sidebarWidth: 280,
+  splitRatio: 0.5, // 请求区占上半部分的比例（横向分栏时）
+  expandedNodeIds: [] as ID[],
+  wsSnippets: [] as WsSnippet[],
+})
+
+export function setSidebarWidth(w: number) {
+  uiState.sidebarWidth = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)))
+  scheduleSave('ui')
+}
+
+export function setSplitRatio(r: number) {
+  uiState.splitRatio = Math.min(0.9, Math.max(0.1, r))
+  scheduleSave('ui')
+}
+
+export function isExpanded(id: ID): boolean {
+  return uiState.expandedNodeIds.includes(id)
+}
+
+export function setExpanded(id: ID, expanded: boolean) {
+  const i = uiState.expandedNodeIds.indexOf(id)
+  if (expanded && i < 0) uiState.expandedNodeIds.push(id)
+  if (!expanded && i >= 0) uiState.expandedNodeIds.splice(i, 1)
+  scheduleSave('ui')
+}
+
+export function toggleExpanded(id: ID) {
+  setExpanded(id, !isExpanded(id))
+}
+
+// ---------- WS 常用片段（WS-4） ----------
+
+export function addWsSnippet(name: string, content: string): WsSnippet {
+  const s: WsSnippet = { id: uid(), name, content }
+  uiState.wsSnippets.push(s)
+  scheduleSave('ui')
+  return s
+}
+
+export function removeWsSnippet(id: ID) {
+  const i = uiState.wsSnippets.findIndex((s) => s.id === id)
+  if (i >= 0) uiState.wsSnippets.splice(i, 1)
+  scheduleSave('ui')
+}

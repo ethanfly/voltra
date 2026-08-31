@@ -63,10 +63,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import KvEditor from './KvEditor.vue'
-import type { HTTPRequestModel, HTTPResponseModel } from '../types/models'
+import type { LegacyHTTPRequest, HTTPResponseModel } from '../types/models'
 import { HTTPService } from '../api/backend'
 
-const props = defineProps<{ request: HTTPRequestModel }>()
+const props = defineProps<{ request: LegacyHTTPRequest }>()
 const emit = defineEmits<{ (e: 'response', resp: HTTPResponseModel): void }>()
 
 const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
