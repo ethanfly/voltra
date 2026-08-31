@@ -187,6 +187,7 @@ const hexSummary = computed(() => (isBinary.value ? binaryHexSummary(text.value)
         :model-value="pretty"
         language="json"
         :read-only="true"
+        :var-highlight="false"
       />
 
       <template v-else-if="mode === 'raw'">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveVars, extractVarNames } from '../src/lib/vars'
+import { resolveVars, extractVarNames, findVarTokens, segmentVars, missingVarNames } from '../src/lib/vars'
 
 describe('resolveVars', () => {
   it('替换已定义变量', () => {
@@ -67,5 +67,58 @@ describe('extractVarNames', () => {
   it('无变量返回空数组', () => {
     expect(extractVarNames('plain text {{broken')).toEqual([])
     expect(extractVarNames('')).toEqual([])
+  })
+})
+
+describe('findVarTokens', () => {
+  it('返回 name 与精确偏移（含括号）', () => {
+    const toks = findVarTokens('ab{{x}}cd{{y.z}}')
+    expect(toks).toEqual([
+      { name: 'x', start: 2, end: 7 },
+      { name: 'y.z', start: 9, end: 16 },
+    ])
+  })
+
+  it('无变量 / 未闭合返回空', () => {
+    expect(findVarTokens('plain')).toEqual([])
+    expect(findVarTokens('{{broken')).toEqual([])
+    expect(findVarTokens('')).toEqual([])
+  })
+})
+
+describe('segmentVars', () => {
+  it('切段后拼接还原原文（镜像高亮依赖）', () => {
+    const segs = segmentVars('https://{{baseUrl}}/users?x={{a}}')
+    expect(segs.map((s) => s.text).join('')).toBe('https://{{baseUrl}}/users?x={{a}}')
+    expect(segs).toHaveLength(4)
+    expect(segs[1].name).toBe('baseUrl')
+    expect(segs[1].text).toBe('{{baseUrl}}')
+    expect(segs[3].name).toBe('a')
+  })
+
+  it('全普通文本为单段；空文本为空', () => {
+    expect(segmentVars('abc')).toEqual([{ text: 'abc' }])
+    expect(segmentVars('')).toEqual([])
+  })
+
+  it('相邻变量无空段', () => {
+    const segs = segmentVars('{{a}}{{b}}')
+    expect(segs).toHaveLength(2)
+    expect(segs.some((s) => s.text === '')).toBe(false)
+  })
+})
+
+describe('missingVarNames', () => {
+  it('只报未定义、去重保序', () => {
+    expect(missingVarNames('{{a}} {{b}} {{a}} {{c}}', { a: '1' })).toEqual(['b', 'c'])
+  })
+
+  it('全部已定义 / 无变量返回空', () => {
+    expect(missingVarNames('{{a}}', { a: '1' })).toEqual([])
+    expect(missingVarNames('plain', { a: '1' })).toEqual([])
+  })
+
+  it('空串值也算已定义', () => {
+    expect(missingVarNames('{{a}}', { a: '' })).toEqual([])
   })
 })

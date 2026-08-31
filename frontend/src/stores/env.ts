@@ -8,6 +8,9 @@ import { resolveVars, type ResolveResult } from '../lib/vars'
 import { currentProject } from './workspace'
 import { scheduleSave } from '../lib/persist'
 
+/** secret 变量在界面/悬浮提示中的打码显示 */
+export const SECRET_MASK = '••••••'
+
 export const env = reactive({
   /** 全局变量（environments.json 兼容保留） */
   globalVars: [] as Variable[],
@@ -47,6 +50,36 @@ export function resolveAll(_request: Request | null, text: string): ResolveResul
   void _request
   return resolveVars(text, mergedVars())
 }
+
+// ---------- 变量元信息（ENV-4/5：高亮、悬浮值、secret 打码） ----------
+
+export interface VarMeta {
+  defined: boolean
+  value: string
+  secret: boolean
+  /** 悬浮提示用显示值（secret 打码） */
+  display: string
+}
+
+/** 按合并顺序（全局 < 项目 < 环境）找到最高优先级的定义作用域，取其 secret 标记 */
+function isSecretVar(name: string): boolean {
+  for (const v of env.globalVars) if (v.key === name && v.enabled) return !!v.secret
+  const p = currentProject.value
+  for (const v of p?.variables ?? []) if (v.key === name && v.enabled) return !!v.secret
+  for (const v of currentEnv.value?.variables ?? []) if (v.key === name && v.enabled) return !!v.secret
+  return false
+}
+
+export function varMeta(name: string): VarMeta {
+  const m = mergedVars()
+  if (!Object.prototype.hasOwnProperty.call(m, name)) {
+    return { defined: false, value: '', secret: false, display: '' }
+  }
+  const value = m[name]
+  const secret = isSecretVar(name)
+  return { defined: true, value, secret, display: secret ? SECRET_MASK : value }
+}
+
 
 // ---------- 环境 CRUD（当前项目内） ----------
 

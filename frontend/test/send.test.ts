@@ -1,7 +1,7 @@
 // 发送管线纯逻辑：继承合并（header/auth）+ auth 注入 + 变量替换 + body 映射
 import { describe, it, expect, beforeEach } from 'vitest'
 import { workspace } from '../src/stores/workspace'
-import { env } from '../src/stores/env'
+import { env, varMeta } from '../src/stores/env'
 import { newProject, newCollection, newFolder, newRequest } from '../src/types/models'
 import { buildGoRequest, mergedHeaders, effectiveAuth, inheritedHeaderKeys } from '../src/lib/send'
 
@@ -169,5 +169,40 @@ describe('buildGoRequest', () => {
       sendCookies: true,
       method: 'GET',
     })
+  })
+})
+
+describe('环境作用域（验收 #4：{{baseUrl}}/users）', () => {
+  it('环境级 > 项目级 > 全局；切换当前环境改变发送值；禁用行回退低层', () => {
+    const { r } = setup()
+    r.url = '{{baseUrl}}/users'
+    const p = workspace.projects[0]
+    env.globalVars = [{ key: 'baseUrl', initialValue: '', currentValue: 'https://g.example.com', enabled: true }]
+    p.variables = [{ key: 'baseUrl', initialValue: '', currentValue: 'https://p.example.com', enabled: true }]
+    const e = {
+      id: 'e1',
+      name: 'dev',
+      variables: [{ key: 'baseUrl', initialValue: '', currentValue: 'https://dev.example.com', enabled: true }],
+    }
+    p.environments = [e]
+
+    env.currentEnvId = null
+    expect(buildGoRequest(r).url).toBe('https://p.example.com/users') // 项目级覆盖全局
+
+    env.currentEnvId = e.id // 顶部切到 dev
+    expect(buildGoRequest(r).url).toBe('https://dev.example.com/users') // 环境级覆盖项目
+
+    env.currentEnvId = null
+    p.variables[0].enabled = false
+    expect(buildGoRequest(r).url).toBe('https://g.example.com/users') // 项目行禁用后回退全局
+  })
+
+  it('secret 变量打码显示但不影响发送真实值', () => {
+    const { r } = setup()
+    env.globalVars = [{ key: 'token', initialValue: '', currentValue: 'real-secret', enabled: true, secret: true }]
+    r.url = 'https://example.com/?t={{token}}'
+    expect(buildGoRequest(r).url).toBe('https://example.com/?t=real-secret')
+    expect(varMeta('token')).toEqual({ defined: true, value: 'real-secret', secret: true, display: '••••••' })
+    expect(varMeta('nope')).toMatchObject({ defined: false })
   })
 })

@@ -255,13 +255,16 @@ export const zhCN = {
     empty: '还没有环境',
     newEnv: '新建环境',
     globalVars: '全局变量',
+    projectVars: '项目级变量',
     vars: '变量',
+    addVar: '添加变量',
     key: '键',
     initial: '初始值',
     current: '当前值',
     secret: '敏感',
     enabled: '启用',
     noEnv: '无环境',
+    undefinedVar: '未定义',
   },
 
   settings: {

@@ -1,9 +1,20 @@
 <script setup lang="ts">
 // CodeMirror 6 封装：语言（json/xml/html/javascript/text）、JSON lint、format 暴露
 // 主题只用 CSS 变量（var(--bg-sunken) 等），明暗切换无需重建编辑器
+// {{变量}} 高亮（ENV-4/5）：已定义=品牌色、未定义=红色波浪线，title 悬浮当前值（secret 打码）；
+// 响应查看器传 var-highlight=false（响应体里的 `{{` 是合法文本，不应告警）
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { EditorView, keymap } from '@codemirror/view'
-import { EditorState, Compartment, type Extension } from '@codemirror/state'
+import { EditorView, keymap, Decoration } from '@codemirror/view'
+import {
+  EditorState,
+  Compartment,
+  StateEffect,
+  StateField,
+  RangeSet,
+  RangeSetBuilder,
+  type Extension,
+  type Text,
+} from '@codemirror/state'
 import {
   defaultKeymap,
   history,
@@ -17,6 +28,9 @@ import { xml } from '@codemirror/lang-xml'
 import { html } from '@codemirror/lang-html'
 import { javascript } from '@codemirror/lang-javascript'
 import { linter, lintGutter } from '@codemirror/lint'
+import { findVarTokens } from '../../lib/vars'
+import { env, currentEnv, varMeta } from '../../stores/env'
+import { currentProject } from '../../stores/workspace'
 
 export type CodeLang = 'json' | 'xml' | 'html' | 'javascript' | 'text'
 
@@ -26,7 +40,8 @@ const props = withDefaults(defineProps<{
   height?: number | string
   readOnly?: boolean
   placeholder?: string
-}>(), { language: 'text', height: '100%', readOnly: false, placeholder: '' })
+  varHighlight?: boolean
+}>(), { language: 'text', height: '100%', readOnly: false, placeholder: '', varHighlight: true })
 
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
 
@@ -83,6 +98,11 @@ const baseTheme = EditorView.theme({
   },
   '.cm-activeLine': { backgroundColor: 'var(--bg-hover)' },
   '.cm-activeLineGutter': { color: 'var(--text-dim)' },
+  '.ce-var': { color: 'var(--brand)', fontWeight: '600' },
+  '.ce-var-bad': {
+    color: 'var(--error)',
+    textDecoration: 'underline wavy var(--error)',
+  },
   '&.cm-focused': { outline: 'none' },
   '&.cm-focused .cm-cursor': { borderLeftColor: 'var(--brand)' },
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
@@ -94,6 +114,35 @@ const wrap = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
 
 const readOnlyComp = new Compartment()
+
+// ---------- {{变量}} 高亮 ----------
+/** 环境/项目/全局变量变更时由外部 dispatch 该 effect，触发装饰重算 */
+const varRecompute = StateEffect.define()
+
+function computeVarSet(doc: Text): RangeSet<Decoration> {
+  const toks = findVarTokens(doc.toString())
+  if (!toks.length) return RangeSet.empty
+  const b = new RangeSetBuilder<Decoration>()
+  for (const t of toks) {
+    const m = varMeta(t.name)
+    const deco = m.defined
+      ? Decoration.mark({ class: 'ce-var', attrs: { title: `${t.name} = ${m.display}` } })
+      : Decoration.mark({ class: 'ce-var-bad', attrs: { title: `${t.name}（未定义）` } })
+    b.add(t.start, t.end, deco)
+  }
+  return b.finish()
+}
+
+const varField = StateField.define<RangeSet<Decoration>>({
+  create: (state) => computeVarSet(state.doc),
+  update(set, tr) {
+    if (tr.docChanged || tr.effects.some((e) => e.is(varRecompute))) {
+      return computeVarSet(tr.state.doc)
+    }
+    return set
+  },
+  provide: (f) => EditorView.decorations.from(f),
+})
 
 function buildExtensions(): Extension[] {
   const exts: Extension[] = [
@@ -112,6 +161,7 @@ function buildExtensions(): Extension[] {
     }),
   ]
   if (props.language !== 'text') exts.push(...langExt(props.language))
+  if (props.varHighlight) exts.push(varField)
   return exts
 }
 
@@ -156,6 +206,20 @@ watch(
       view.dispatch({ effects: readOnlyComp.reconfigure(EditorState.readOnly.of(v)) })
     }
   },
+)
+// 变量作用域变化（换环境 / 改值 / 增删 / 切项目）→ 重算高亮，不动文档。
+// watch 放在 setup 而非模块级：组件模块加载时 stores 已就绪，避免循环依赖求值期 TDZ
+watch(
+  () => ({
+    eid: env.currentEnvId,
+    g: env.globalVars,
+    pv: currentProject.value?.variables,
+    ev: currentEnv.value?.variables,
+  }),
+  () => {
+    if (view && props.varHighlight) view.dispatch({ effects: varRecompute.of(null) })
+  },
+  { deep: true },
 )
 
 /** JSON 美化；返回 'ok' 已格式化 / 'error' 解析失败 / 'noop' 非 JSON 或空 */

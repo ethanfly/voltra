@@ -1,10 +1,12 @@
 <script setup lang="ts">
 // KV 行编辑器：checkbox 启用 / key / value（/可选 description）/ 悬停删除
 // 直接原地修改传入的 reactive 数组（行对象本身即响应式），不 emit 副本
-// 值中含 {{var}} 的行加 .kv-var 类（变量色）；禁用行划线灰显
+// 值中含 {{var}} 的行加 .kv-var 类（变量色）；含未定义变量加 .kv-var-bad（红色波浪线，ENV-4）
+// 悬浮提示（ENV-5）：title 列出 名称=值（secret 打码）/ 未定义标注
 import { Trash2 } from 'lucide-vue-next'
 import type { KVPair } from '../../types/models'
 import { t } from '../../locales/zh-CN'
+import { missingIn, varTitle } from '../../lib/var-ui'
 
 const props = withDefaults(defineProps<{
   modelValue: KVPair[]
@@ -15,6 +17,9 @@ const L = t()
 
 function hasVars(v: string): boolean {
   return /\{\{.*?\}\}/.test(v)
+}
+function isVarBad(v: string): boolean {
+  return missingIn(v).length > 0
 }
 function addRow() {
   props.modelValue.push({ key: '', value: '', enabled: true })
@@ -40,15 +45,29 @@ function removeRow(idx: number) {
       :class="{ disabled: !row.enabled }"
     >
       <input type="checkbox" v-model="row.enabled" />
-      <input class="kve-in" v-model="row.key" :class="{ 'kv-var': hasVars(row.key) }" :placeholder="L.request.kv.key" />
+      <input
+        class="kve-in"
+        v-model="row.key"
+        :class="{ 'kv-var': hasVars(row.key), 'kv-var-bad': isVarBad(row.key) }"
+        :title="varTitle(row.key)"
+        :placeholder="L.request.kv.key"
+      />
       <input
         class="kve-in"
         v-model="row.value"
-        :class="{ 'kv-var': hasVars(row.value) }"
+        :class="{ 'kv-var': hasVars(row.value), 'kv-var-bad': isVarBad(row.value) }"
+        :title="varTitle(row.value)"
         :placeholder="L.request.kv.value"
         :type="row.key.toLowerCase() === 'authorization' ? 'password' : 'text'"
       />
-      <input v-if="description" class="kve-in kve-desc" v-model="row.description" :placeholder="L.request.kv.description" />
+      <input
+        v-if="description"
+        class="kve-in kve-desc"
+        v-model="row.description"
+        :class="{ 'kv-var-bad': isVarBad(row.description ?? '') }"
+        :title="varTitle(row.description ?? '')"
+        :placeholder="L.request.kv.description"
+      />
       <button class="icon-btn kve-del" :title="L.common.delete" @click="removeRow(idx)">
         <Trash2 :size="12" />
       </button>
@@ -127,6 +146,14 @@ function removeRow(idx: number) {
 }
 .kve-in.kv-var:focus {
   border-color: var(--brand);
+}
+.kve-in.kv-var-bad {
+  color: var(--error);
+  text-decoration: underline wavy var(--error);
+}
+.kve-in.kv-var-bad:focus {
+  border-color: var(--error);
+  background: var(--bg-elev);
 }
 .kve-del {
   opacity: 0;

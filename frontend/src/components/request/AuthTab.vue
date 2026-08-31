@@ -1,7 +1,9 @@
 <script setup lang="ts">
 // Auth：none / inherit / bearer / basic / apikey（header 或 query）
+// 字段含 {{var}} 时：未定义红色波浪线（ENV-4）+ 悬浮值（ENV-5，secret 打码）
 import type { Request, AuthConfig } from '../../types/models'
 import { t } from '../../locales/zh-CN'
+import { missingIn, varTitle } from '../../lib/var-ui'
 import Segmented from '../common/Segmented.vue'
 
 const props = defineProps<{ request: Request }>()
@@ -31,21 +33,48 @@ function setType(v: string) {
 
     <div v-if="request.auth.type === 'bearer' && request.auth.bearer" class="at-rows">
       <label class="at-label">{{ L.request.auth.token }}</label>
-      <input class="input" v-model="request.auth.bearer.token" placeholder="eyJhbGciOi…" />
+      <input
+        class="input"
+        :class="{ 'at-var-bad': missingIn(request.auth.bearer.token).length > 0 }"
+        :title="varTitle(request.auth.bearer.token)"
+        v-model="request.auth.bearer.token"
+        placeholder="eyJhbGciOi…"
+      />
     </div>
 
     <div v-else-if="request.auth.type === 'basic' && request.auth.basic" class="at-rows">
       <label class="at-label">{{ L.request.auth.username }}</label>
-      <input class="input" v-model="request.auth.basic.username" />
+      <input
+        class="input"
+        :class="{ 'at-var-bad': missingIn(request.auth.basic.username).length > 0 }"
+        :title="varTitle(request.auth.basic.username)"
+        v-model="request.auth.basic.username"
+      />
       <label class="at-label">{{ L.request.auth.password }}</label>
-      <input class="input" type="password" v-model="request.auth.basic.password" />
+      <input
+        class="input"
+        type="password"
+        :class="{ 'at-var-bad': missingIn(request.auth.basic.password).length > 0 }"
+        :title="varTitle(request.auth.basic.password)"
+        v-model="request.auth.basic.password"
+      />
     </div>
 
     <div v-else-if="request.auth.type === 'apikey' && request.auth.apikey" class="at-rows">
       <label class="at-label">{{ L.request.auth.key }}</label>
-      <input class="input" v-model="request.auth.apikey.key" />
+      <input
+        class="input"
+        :class="{ 'at-var-bad': missingIn(request.auth.apikey.key).length > 0 }"
+        :title="varTitle(request.auth.apikey.key)"
+        v-model="request.auth.apikey.key"
+      />
       <label class="at-label">{{ L.request.auth.value }}</label>
-      <input class="input" v-model="request.auth.apikey.value" />
+      <input
+        class="input"
+        :class="{ 'at-var-bad': missingIn(request.auth.apikey.value).length > 0 }"
+        :title="varTitle(request.auth.apikey.value)"
+        v-model="request.auth.apikey.value"
+      />
       <label class="at-label">{{ L.request.auth.in }}</label>
       <Segmented
         :options="[
@@ -83,6 +112,10 @@ function setType(v: string) {
 .at-rows .input {
   width: 100%;
   box-sizing: border-box;
+}
+.at-rows .input.at-var-bad {
+  color: var(--error);
+  text-decoration: underline wavy var(--error);
 }
 .at-hint {
   font-size: 12px;

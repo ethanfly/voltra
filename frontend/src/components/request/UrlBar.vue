@@ -2,11 +2,16 @@
 // URL 栏：方法选择 + URL 输入 + 保存 + 发送/取消
 // scheme 灰显：无 scheme 时前置一个 8ch 的灰显 "http(s)://" 片段，
 // 输入文字透明、下层 <pre> 镜像同文本（像素对齐），长文本滚动时同步镜像
+// {{变量}} 高亮（REQ-2/ENV-4）：镜像里渲染分段 span（已定义=品牌色，未定义=红色波浪线）；
+// 悬浮值（ENV-5）放输入框 title（镜像 pointer-events:none，无法独立悬浮）
 import { computed, ref } from 'vue'
 import { Save, Send, Loader2, X } from 'lucide-vue-next'
 import MethodPicker from './MethodPicker.vue'
 import type { Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
+import { segmentVars } from '../../lib/vars'
+import { varMeta } from '../../stores/env'
+import { varTitle } from '../../lib/var-ui'
 
 const props = defineProps<{ request: Request; sending: boolean }>()
 const emit = defineEmits<{
@@ -46,6 +51,15 @@ function syncScroll() {
   const el = inputEl.value
   if (el && mirrorEl.value) mirrorEl.value.style.transform = `translateX(${-el.scrollLeft}px)`
 }
+
+// 镜像分段：变量 token 渲染成 span（不影响布局，同字体同行高）
+const mirrorSegs = computed(() =>
+  segmentVars(props.request.url).map((s) => ({
+    text: s.text,
+    cls: s.name === undefined ? '' : varMeta(s.name).defined ? 'ub-var' : 'ub-var-bad',
+  })),
+)
+const urlTitle = computed(() => varTitle(props.request.url))
 </script>
 
 <template>
@@ -58,8 +72,7 @@ function syncScroll() {
         class="ub-mirror"
         aria-hidden="true"
         :style="{ paddingInlineStart: hintScheme ? 'calc(10px + 8ch)' : '10px' }"
-        >{{ request.url }}</pre
-      >
+      ><span v-for="(seg, i) in mirrorSegs" :key="i" :class="seg.cls">{{ seg.text }}</span></pre>
       <input
         ref="inputEl"
         class="ub-in"
@@ -68,6 +81,7 @@ function syncScroll() {
         autocomplete="off"
         :style="{ paddingInlineStart: hintScheme ? 'calc(10px + 8ch)' : '10px' }"
         :placeholder="L.request.urlPlaceholder"
+        :title="urlTitle"
         @keydown="onKey"
         @scroll="syncScroll"
       />
@@ -146,6 +160,13 @@ function syncScroll() {
 }
 .ub-in::placeholder {
   color: var(--text-faint);
+}
+.ub-mirror .ub-var {
+  color: var(--brand);
+}
+.ub-mirror .ub-var-bad {
+  color: var(--error);
+  text-decoration: underline wavy var(--error);
 }
 .ub-send {
   flex-shrink: 0;

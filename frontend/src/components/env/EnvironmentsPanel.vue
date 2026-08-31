@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// 环境面板（基础版）：环境选择/新建/重命名/删除 + 变量表（键/初始值/当前值/启用/敏感）
-// 阶段 7 增强：项目级/全局变量区、未定义变量标红
+// 环境面板：环境选择/新建/重命名/删除 + 三级变量表（环境级 / 项目级 / 全局）
+// 变量行在 VarTable 中原地编辑；敏感值 password 打码、可点眼切换
 import { computed, ref } from 'vue'
-import { Plus, Trash2, Pencil, Eye, EyeOff } from 'lucide-vue-next'
+import { Plus, Trash2, Pencil } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
+import VarTable from './VarTable.vue'
 import {
   env,
   currentEnv,
@@ -14,7 +15,6 @@ import {
 import { currentProject } from '../../stores/workspace'
 import { scheduleSave } from '../../lib/persist'
 import { t } from '../../locales/zh-CN'
-import type { Variable } from '../../types/models'
 
 const L = computed(() => t())
 const p = computed(() => currentProject.value)
@@ -23,6 +23,9 @@ function commit() {
   const pr = p.value
   if (pr) pr.updatedAt = Date.now()
   scheduleSave('projects')
+}
+function commitGlobal() {
+  scheduleSave('env')
 }
 
 function onAddEnv() {
@@ -51,19 +54,6 @@ function endRename() {
 
 function onRemoveEnv() {
   if (currentEnv.value) removeEnvFromProject(currentEnv.value.id)
-}
-
-// 变量表
-function addVarRow() {
-  if (!currentEnv.value) return
-  currentEnv.value.variables.push({ key: '', initialValue: '', currentValue: '', enabled: true })
-  commit()
-}
-function removeVarRow(v: Variable) {
-  if (!currentEnv.value) return
-  const i = currentEnv.value.variables.indexOf(v)
-  if (i >= 0) currentEnv.value.variables.splice(i, 1)
-  commit()
 }
 </script>
 
@@ -115,52 +105,25 @@ function removeVarRow(v: Variable) {
         </select>
       </div>
 
-      <!-- 变量表 -->
+      <!-- 环境级变量表 -->
       <div v-if="currentEnv" class="ep-vars">
         <div class="ep-vars-head">
           <span>{{ L.env.vars }}</span>
-          <button class="ep-act" :title="L.request.kv.addRow" @click="addVarRow">
-            <Plus :size="12" />
-          </button>
         </div>
-        <div v-if="currentEnv.variables.length === 0" class="ep-vars-empty">{{ L.common.empty }}</div>
-        <table v-else class="ep-table">
-          <thead>
-            <tr>
-              <th>{{ L.env.key }}</th>
-              <th>{{ L.env.initial }}</th>
-              <th>{{ L.env.current }}</th>
-              <th class="ep-th-act">{{ L.env.enabled }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(v, i) in currentEnv.variables" :key="i" class="ep-var-row">
-              <td><input v-model="v.key" class="input cell" @change="commit" /></td>
-              <td><input v-model="v.initialValue" class="input cell" @change="commit" /></td>
-              <td>
-                <input
-                  v-model="v.currentValue"
-                  class="input cell"
-                  :type="v.secret ? 'password' : 'text'"
-                  @change="commit"
-                />
-                <button class="ep-eye" :title="L.env.secret" @click="v.secret = !v.secret; commit()">
-                  <EyeOff v-if="v.secret" :size="11" />
-                  <Eye v-else :size="11" />
-                </button>
-              </td>
-              <td class="ep-td-act">
-                <label class="ep-check">
-                  <input v-model="v.enabled" type="checkbox" @change="commit" />
-                </label>
-                <button class="ep-act" :title="L.common.delete" @click="removeVarRow(v)">
-                  <Trash2 :size="12" />
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <VarTable :vars="currentEnv.variables" :on-commit="commit" />
       </div>
+
+      <!-- 项目级变量（跨环境，存在 Project.variables） -->
+      <details class="ep-sec">
+        <summary>{{ L.env.projectVars }}（{{ p.variables.length }}）</summary>
+        <VarTable :vars="p.variables" :on-commit="commit" />
+      </details>
+
+      <!-- 全局变量（environments.json，跨项目） -->
+      <details class="ep-sec">
+        <summary>{{ L.env.globalVars }}（{{ env.globalVars.length }}）</summary>
+        <VarTable :vars="env.globalVars" :on-commit="commitGlobal" />
+      </details>
     </template>
   </div>
 </template>
@@ -221,7 +184,6 @@ function removeVarRow(v: Variable) {
   font-size: 12px;
 }
 .ep-vars {
-  flex: 1;
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
@@ -236,54 +198,19 @@ function removeVarRow(v: Variable) {
   font-weight: 600;
   color: var(--text-dim);
 }
-.ep-vars-empty {
-  padding: 12px 10px;
-  font-size: 12px;
-  color: var(--text-faint);
+.ep-sec {
+  border-top: 1px solid var(--border);
+  padding: 6px 10px 2px;
 }
-.ep-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.ep-table th {
-  text-align: left;
-  font-size: 10px;
+.ep-sec summary {
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-faint);
-  padding: 3px 4px;
-  border-bottom: 1px solid var(--border);
-}
-.ep-table td {
-  padding: 3px 4px;
-  vertical-align: middle;
-}
-.cell {
-  width: 100%;
-  height: 24px;
-  font-size: 12px;
-}
-.ep-td-act {
-  white-space: nowrap;
-  width: 56px;
-}
-.ep-th-act {
-  width: 56px;
-}
-.ep-check {
-  display: inline-flex;
-  align-items: center;
-}
-.ep-eye {
-  display: flex;
-  align-items: center;
-  border: none;
-  background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
-  padding: 2px;
+  padding: 2px 0 6px;
+  user-select: none;
 }
-.ep-eye:hover {
+.ep-sec summary:hover {
   color: var(--text);
 }
 </style>

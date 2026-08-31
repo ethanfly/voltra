@@ -48,3 +48,57 @@ export function extractVarNames(text: string): string[] {
   }
   return names
 }
+
+/** 文本中变量 token 的位置列表（含未闭合之外的全部合法 token），供装饰/切段用 */
+export interface VarToken {
+  name: string
+  /** 含 `{{` 的起始偏移 */
+  start: number
+  /** 含 `}}` 的末尾偏移（exclusive） */
+  end: number
+}
+
+export function findVarTokens(text: string): VarToken[] {
+  if (!text || text.indexOf('{{') === -1) return []
+  const out: VarToken[] = []
+  const re = new RegExp(VAR_TOKEN.source, 'g')
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    out.push({ name: m[1], start: m.index, end: m.index + m[0].length })
+  }
+  return out
+}
+
+/** 切段：普通文本 / 变量 token（带 name），用于把高亮 span 叠在原始文本上 */
+export interface VarSegment {
+  text: string
+  /** 非空表示该段是变量 token */
+  name?: string
+}
+
+export function segmentVars(text: string): VarSegment[] {
+  const toks = findVarTokens(text)
+  if (!toks.length) return text ? [{ text }] : []
+  const out: VarSegment[] = []
+  let pos = 0
+  for (const t of toks) {
+    if (t.start > pos) out.push({ text: text.slice(pos, t.start) })
+    out.push({ text: text.slice(t.start, t.end), name: t.name })
+    pos = t.end
+  }
+  if (pos < text.length) out.push({ text: text.slice(pos) })
+  return out
+}
+
+/** 文本中未定义的变量名（去重、首次出现序）；vars 为合并后的作用域 map */
+export function missingVarNames(text: string, vars: Record<string, string>): string[] {
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const t of findVarTokens(text)) {
+    if (!seen.has(t.name) && !Object.prototype.hasOwnProperty.call(vars, t.name)) {
+      seen.add(t.name)
+      out.push(t.name)
+    }
+  }
+  return out
+}
