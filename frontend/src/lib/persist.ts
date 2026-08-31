@@ -22,6 +22,10 @@ import { settings, applyTheme, initThemeWatcher } from '../stores/settings'
 import { uiState, SIDEBAR_MIN, SIDEBAR_MAX } from '../stores/ui-state'
 import { tabs } from '../stores/tabs'
 
+/** 保存状态（状态栏展示） */
+import { ref } from 'vue'
+export const saveStatus = ref<'idle' | 'saving' | 'error'>('idle')
+
 // ---------- 小工具 ----------
 
 function tryParse<T>(raw: string, fallback: T): T {
@@ -192,6 +196,7 @@ export function scheduleSave(kind: SaveKind) {
   const old = timers.get(kind)
   if (old !== undefined) window.clearTimeout(old)
   pending.add(kind)
+  saveStatus.value = 'saving'
   timers.set(
     kind,
     window.setTimeout(() => {
@@ -216,7 +221,16 @@ async function flushSave(kind: SaveKind) {
   timers.delete(kind)
   pending.delete(kind)
   try {
-    switch (kind) {
+    await flushSaveInner(kind)
+    saveStatus.value = timers.size || pending.size ? 'saving' : 'idle'
+  } catch (e) {
+    console.error(`[persist] 保存 ${kind} 失败`, e)
+    saveStatus.value = 'error'
+  }
+}
+
+async function flushSaveInner(kind: SaveKind) {
+  switch (kind) {
       case 'projects':
         await StorageService.SaveProjects(JSON.stringify(workspace.projects))
         break
@@ -232,9 +246,6 @@ async function flushSave(kind: SaveKind) {
       case 'ui':
         await StorageService.SaveUIState(JSON.stringify(collectUIState()))
         break
-    }
-  } catch (e) {
-    console.error(`[persist] 保存 ${kind} 失败`, e)
   }
 }
 

@@ -36,6 +36,14 @@ export const zhCN = {
     no: '否',
     unsaved: '未保存',
     quit: '退出',
+    collapse: '折叠侧栏',
+    expand: '展开侧栏',
+  },
+
+  status: {
+    saved: '已保存',
+    saving: '保存中…',
+    saveError: '保存失败',
   },
 
   titleBar: {
@@ -276,6 +284,10 @@ export const zhCN = {
     projectDeleteConfirm: '删除项目将同时删除其中的所有接口、环境和变量，确定删除吗？',
     importPreview: '导入预览',
     importSkipped: '项已跳过',
+    collectionNew: '新建集合',
+    envNew: '新建环境',
+    newHttp: '新建 HTTP 请求',
+    newWs: '新建 WebSocket',
   },
 } as const
 
@@ -284,6 +296,6 @@ export type Locales = typeof zhCN
 // v0.2 只有中文；en 占位避免语言切换逻辑写死
 export const en: Locales = zhCN
 
-export function t(lang: 'zh' | 'en'): Locales {
+export function t(lang: 'zh' | 'en' = 'zh'): Locales {
   return lang === 'zh' ? zhCN : en
 }

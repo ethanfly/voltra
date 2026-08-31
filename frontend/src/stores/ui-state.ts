@@ -1,8 +1,15 @@
 // UI 状态 store（ui-state.json：侧栏宽度、分栏比例、展开节点、WS 常用片段）
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import type { ID, WsSnippet } from '../types/models'
 import { uid } from '../types/models'
 import { scheduleSave } from '../lib/persist'
+
+export type PanelKind = 'collections' | 'history' | 'environments' | 'settings'
+
+/** 侧栏当前面板（不落盘，重启回到 collections） */
+export const activePanel = ref<PanelKind>('collections')
+/** 侧栏是否折叠（不落盘） */
+export const sidebarCollapsed = ref(false)
 
 export const SIDEBAR_MIN = 240
 export const SIDEBAR_MAX = 480
