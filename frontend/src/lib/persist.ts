@@ -192,6 +192,7 @@ const DEFAULT_DEBOUNCE_MS = 500
 const UI_DEBOUNCE_MS = 1000
 
 export function scheduleSave(kind: SaveKind) {
+  if (typeof window === 'undefined') return // vitest node 环境
   const delay = kind === 'ui' ? UI_DEBOUNCE_MS : DEFAULT_DEBOUNCE_MS
   const old = timers.get(kind)
   if (old !== undefined) window.clearTimeout(old)

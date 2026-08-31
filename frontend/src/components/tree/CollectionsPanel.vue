@@ -1,49 +1,248 @@
 <script setup lang="ts">
-// 接口集合面板（基础版：列表 + 展开折叠 + 点击打开；阶段 4 加搜索/DnD/右键）
-import { computed } from 'vue'
-import { Plus, FilePlus2, FolderPlus } from 'lucide-vue-next'
+// 接口集合面板：搜索（平铺+面包屑+高亮）/ 树（仅渲染展开子级）/
+// 集合行（内联重命名·拖拽排序·右键）/ 空状态三按钮
+import { computed, ref } from 'vue'
+import { Search, Plus, FilePlus2, FolderPlus, Folder, Trash2, ChevronDown, ChevronRight } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
+import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
+import ConfirmDialog from '../common/ConfirmDialog.vue'
 import TreeNodeRow from './TreeNodeRow.vue'
-import { currentProject, addCollection, addFolder, addRequest } from '../../stores/workspace'
+import {
+  currentProject,
+  addCollection,
+  removeCollection,
+  renameCollection,
+  addFolder,
+  addRequest,
+  removeNode,
+  duplicateNode,
+  treeSearch,
+} from '../../stores/workspace'
+import { openRequest } from '../../stores/tabs'
+import { setExpanded, toggleExpanded, isExpanded } from '../../stores/ui-state'
+import {
+  dragNodeId,
+  dragIsCollection,
+  dropTarget,
+  resetDnd,
+  type DropPos,
+} from './dnd-state'
+import { scheduleSave } from '../../lib/persist'
+import type { ID, Collection, TreeNode, Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 
 const L = computed(() => t())
-
 const p = computed(() => currentProject.value)
+
+/** Collection 没有 kind 字段，统一取类型判别 */
+function kindOf(n: Collection | TreeNode): 'collection' | 'folder' | 'request' {
+  return 'kind' in n ? n.kind : 'collection'
+}
+
+// ---------- 搜索 ----------
+const query = ref('')
+const searching = computed(() => query.value.trim().length > 0)
+interface Hit {
+  node: Collection | TreeNode
+  path: string[]
+  k: 'collection' | 'folder' | 'request'
+  /** 命中为请求时的收窄引用（模板里无法对联合类型收窄） */
+  req: Request | null
+}
+const hits = computed<Hit[]>(() => {
+  if (!searching.value) return []
+  return treeSearch(query.value).map((h) => {
+    const k = kindOf(h.node)
+    return { ...h, k, req: k === 'request' ? (h.node as Request) : null }
+  })
+})
+
+function highlightName(name: string): string {
+  const q = query.value.trim()
+  const i = name.toLowerCase().indexOf(q.toLowerCase())
+  if (i < 0) return escapeHtml(name)
+  return escapeHtml(name.slice(0, i)) + '<mark>' + escapeHtml(name.slice(i, i + q.length)) + '</mark>' + escapeHtml(name.slice(i + q.length))
+}
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function onHit(node: Collection | TreeNode) {
+  const k = kindOf(node)
+  if (k === 'request') openRequest(node as Request)
+  else if (k === 'folder') setExpanded(node.id, true)
+}
+
+// ---------- 空状态 ----------
 const isEmpty = computed(() => !p.value || p.value.collections.length === 0)
 
-// 空状态三个按钮：目标集合 = 已有集合取第一个，否则先建一个
-function targetCollection() {
+function targetCollection(): Collection | null {
   const pr = currentProject.value
   if (!pr) return null
   if (pr.collections.length > 0) return pr.collections[0]
   return addCollection('新集合')
 }
-
 function onNewRequest() {
   const c = targetCollection()
-  if (!c) return
-  addRequest(c)
+  if (c) addRequest(c)
 }
-
 function onNewFolder() {
   const c = targetCollection()
-  if (!c) return
-  addFolder(c, '新建文件夹')
+  if (c) addFolder(c, '新建文件夹')
 }
-
 function onNewCollection() {
   addCollection('新集合')
+}
+
+// ---------- 集合行：内联重命名 ----------
+const renamingCollId = ref<ID | null>(null)
+const renameCollText = ref('')
+function startRenameColl(c: Collection) {
+  renameCollText.value = c.name
+  renamingCollId.value = c.id
+  setTimeout(() => renameCollInput.value?.select(), 0)
+}
+const renameCollInput = ref<HTMLInputElement | null>(null)
+function commitRenameColl(c: Collection) {
+  if (renamingCollId.value !== c.id) return
+  renamingCollId.value = null
+  const v = renameCollText.value.trim()
+  if (v && v !== c.name) renameCollection(c.id, v)
+}
+
+// ---------- 集合拖拽排序（仅集合↔集合） ----------
+function onCollDragStart(e: DragEvent, id: ID) {
+  dragNodeId.value = id
+  dragIsCollection.value = true
+  if (!e.dataTransfer) return
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', id)
+}
+function onCollDragOver(e: DragEvent, id: ID) {
+  if (!dragNodeId.value || !dragIsCollection.value || dragNodeId.value === id) return
+  if (!p.value?.collections.some((c) => c.id === id)) return
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const pos: DropPos = (e.clientY - rect.top) / rect.height < 0.5 ? 'before' : 'after'
+  if (dropTarget.value?.id !== id || dropTarget.value?.pos !== pos) {
+    dropTarget.value = { id, pos }
+  }
+}
+function onCollDrop(e: DragEvent, id: ID) {
+  e.preventDefault()
+  const dragId = dragNodeId.value
+  const pos = dropTarget.value?.id === id ? dropTarget.value.pos : null
+  dragNodeId.value = null
+  dragIsCollection.value = false
+  dropTarget.value = null
+  if (!dragId || !pos) return
+  reorderCollections(dragId, id, pos)
+}
+function reorderCollections(dragId: ID, targetId: ID, pos: DropPos) {
+  const pr = currentProject.value
+  if (!pr) return
+  const items = pr.collections
+  const from = items.findIndex((c) => c.id === dragId)
+  if (from < 0) return
+  const [c] = items.splice(from, 1)
+  const t = items.findIndex((x) => x.id === targetId)
+  if (t < 0) return
+  items.splice(t + (pos === 'before' ? 0 : 1), 0, c)
+  pr.updatedAt = Date.now()
+  scheduleSave('projects')
+}
+
+// ---------- 右键菜单 ----------
+const menu = ref<{ node: Collection | TreeNode; x: number; y: number } | null>(null)
+const pendingDelete = ref<{ id: ID; name: string; isCollection: boolean } | null>(null)
+const externalRename = ref<ID | null>(null)
+
+function onNodeMenu(node: TreeNode, x: number, y: number) {
+  menu.value = { node, x, y }
+}
+function onCollMenu(e: MouseEvent, c: Collection) {
+  e.preventDefault()
+  menu.value = { node: c, x: e.clientX, y: e.clientY }
+}
+
+const menuItems = computed<MenuItem[]>(() => {
+  const m = menu.value
+  if (!m) return []
+  const k = kindOf(m.node)
+  const Lc = L.value
+  if (k === 'request') {
+    return [
+      { label: Lc.tree.duplicate },
+      { label: Lc.common.rename },
+      { sep: true, label: '' },
+      { label: Lc.common.delete, danger: true },
+    ]
+  }
+  if (k === 'folder') {
+    return [
+      { label: Lc.tree.newRequest },
+      { label: Lc.tree.newFolder },
+      { sep: true, label: '' },
+      { label: Lc.tree.duplicate },
+      { label: Lc.common.rename },
+      { sep: true, label: '' },
+      { label: Lc.common.delete, danger: true },
+    ]
+  }
+  return [
+    { label: Lc.tree.newRequest },
+    { label: Lc.tree.newFolder },
+    { sep: true, label: '' },
+    { label: Lc.common.rename },
+    { label: Lc.common.delete, danger: true },
+  ]
+})
+
+function onMenuSelect(item: MenuItem) {
+  const m = menu.value
+  menu.value = null
+  if (!m || item.sep) return
+  const n = m.node
+  const k = kindOf(n)
+  const Lc = L.value
+  if (item.label === Lc.tree.newRequest) {
+    if (k !== 'request') addRequest(n as Collection | Extract<TreeNode, { kind: 'folder' }>)
+  } else if (item.label === Lc.tree.newFolder) {
+    if (k !== 'request') addFolder(n as Collection | Extract<TreeNode, { kind: 'folder' }>, '新建文件夹')
+  } else if (item.label === Lc.tree.duplicate) {
+    duplicateNode(n.id)
+  } else if (item.label === Lc.common.rename) {
+    if (k === 'collection') startRenameColl(n as Collection)
+    else externalRename.value = n.id
+  } else if (item.label === Lc.common.delete) {
+    pendingDelete.value = { id: n.id, name: n.name, isCollection: k === 'collection' }
+  }
+}
+
+function doDelete() {
+  const d = pendingDelete.value
+  pendingDelete.value = null
+  if (!d) return
+  if (d.isCollection) removeCollection(d.id)
+  else removeNode(d.id)
 }
 </script>
 
 <template>
   <div class="cp">
-    <template v-if="!p">
-      <EmptyState :title="L.tree.empty" :hint="L.tree.noProjectHint" />
-    </template>
-    <template v-else-if="isEmpty">
-      <EmptyState :title="L.tree.empty">
+    <!-- 无项目 -->
+    <EmptyState v-if="!p" :title="L.tree.empty" :hint="L.tree.noProjectHint" />
+
+    <template v-else>
+      <!-- 搜索框 -->
+      <div class="cp-search">
+        <Search :size="12" />
+        <input v-model="query" class="cp-search-input" :placeholder="L.tree.searchPlaceholder" />
+      </div>
+
+      <!-- 空状态 -->
+      <EmptyState v-if="isEmpty" :title="L.tree.empty">
         <template #actions>
           <button class="btn" @click="onNewRequest">
             <FilePlus2 :size="13" /> {{ L.tree.newRequest }}
@@ -56,10 +255,113 @@ function onNewCollection() {
           </button>
         </template>
       </EmptyState>
+
+      <!-- 搜索态：平铺命中 + 面包屑 + 高亮 -->
+      <template v-else-if="searching">
+        <div v-if="hits.length === 0" class="cp-nohit">{{ L.tree.searchEmpty }}</div>
+        <div
+          v-for="(h, i) in hits"
+          :key="h.node.id + '-' + i"
+          class="cp-hit"
+          @click="onHit(h.node)"
+        >
+          <div class="cp-crumb">{{ h.path.join(' / ') }}</div>
+          <div class="cp-hit-name">
+            <template v-if="h.req">
+              <span :class="['tn-method', h.req.protocol === 'ws' ? 'm-WS' : 'm-' + h.req.method.toUpperCase()]">
+                {{ h.req.protocol === 'ws' ? 'WS' : h.req.method }}
+              </span>
+            </template>
+            <Folder v-else :size="12" class="cp-crumb-ico" />
+            <span v-html="highlightName(h.node.name)"></span>
+          </div>
+        </div>
+      </template>
+
+      <!-- 正常态：集合 + 递归树（只渲染展开的子级） -->
+      <template v-else>
+        <div
+          v-for="c in p.collections"
+          :key="c.id"
+          :class="[
+            'coll-group',
+            {
+              'drop-before': dropTarget?.id === c.id && dropTarget.pos === 'before',
+              'drop-after': dropTarget?.id === c.id && dropTarget.pos === 'after',
+            },
+          ]"
+          :draggable="!renamingCollId"
+          @dragstart="onCollDragStart($event, c.id)"
+          @dragover="onCollDragOver($event, c.id)"
+          @drop="onCollDrop($event, c.id)"
+          @dragend="resetDnd"
+        >
+          <div class="coll-head" @contextmenu="onCollMenu($event, c)">
+            <button class="tn-chevron" :class="{ open: isExpanded(c.id) }" @click.stop="toggleExpanded(c.id)">
+              <ChevronDown v-if="isExpanded(c.id)" :size="12" />
+              <ChevronRight v-else :size="12" />
+            </button>
+            <Folder :size="13" class="coll-ico" />
+            <input
+              v-if="renamingCollId === c.id"
+              ref="renameCollInput"
+              v-model="renameCollText"
+              class="tn-rename"
+              @click.stop
+              @blur="commitRenameColl(c)"
+              @keyup.enter="commitRenameColl(c)"
+              @keyup.esc="renamingCollId = null"
+            />
+            <span
+              v-else
+              class="tn-name"
+              :title="c.name"
+              @click="toggleExpanded(c.id)"
+              @dblclick="startRenameColl(c)"
+            >
+              {{ c.name }}
+            </span>
+            <button
+              class="coll-del"
+              :title="L.common.delete"
+              @click="pendingDelete = { id: c.id, name: c.name, isCollection: true }"
+            >
+              <Trash2 :size="11" />
+            </button>
+          </div>
+          <div v-if="isExpanded(c.id)">
+            <TreeNodeRow
+              v-for="child in c.items"
+              :key="child.id"
+              :node="child"
+              :level="1"
+              :external-rename="externalRename"
+              @menu="onNodeMenu"
+              @rename-done="externalRename = null"
+            />
+          </div>
+        </div>
+      </template>
     </template>
-    <template v-else>
-      <TreeNodeRow v-for="c in p.collections" :key="c.id" :node="c" :level="0" />
-    </template>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      v-if="menu"
+      :x="menu.x"
+      :y="menu.y"
+      :items="menuItems"
+      @select="onMenuSelect"
+      @close="menu = null"
+    />
+
+    <ConfirmDialog
+      v-if="pendingDelete"
+      :title="L.common.confirmDelete"
+      :message="`确定删除「${pendingDelete.name}」及其全部内容？`"
+      :danger="true"
+      @confirm="doDelete"
+      @cancel="pendingDelete = null"
+    />
   </div>
 </template>
 
@@ -67,5 +369,157 @@ function onNewCollection() {
 .cp {
   display: flex;
   flex-direction: column;
+  min-height: 100%;
+  position: relative;
+}
+.cp-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 8px 8px;
+  padding: 0 8px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.cp-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+}
+.cp-nohit {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.cp-hit {
+  padding: 4px 12px 4px 8px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.cp-hit:hover {
+  background: var(--bg-hover);
+}
+.cp-crumb {
+  font-size: 10px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cp-crumb-ico {
+  vertical-align: -1px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+.cp-hit-name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+}
+.cp-hit-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tn-method {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  min-width: 30px;
+  flex-shrink: 0;
+}
+.coll-group {
+  margin-bottom: 2px;
+}
+.coll-group.drop-before > .coll-head {
+  box-shadow: 0 -2px 0 0 var(--brand);
+}
+.coll-group.drop-after > .coll-head {
+  box-shadow: 0 2px 0 0 var(--brand);
+}
+.coll-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--row-h);
+  padding: 0 6px 0 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+.coll-head:hover {
+  background: var(--bg-hover);
+}
+.coll-ico {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+.tn-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tn-chevron:hover {
+  background: var(--border);
+  color: var(--text);
+}
+.tn-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tn-rename {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.coll-del {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.coll-head:hover .coll-del {
+  display: flex;
+}
+.coll-del:hover {
+  background: var(--error-weak);
+  color: var(--error);
 }
 </style>

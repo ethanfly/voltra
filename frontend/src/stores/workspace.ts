@@ -237,7 +237,8 @@ function cloneNodeWithNewIds(n: TreeNode): TreeNode {
 export function moveNode(dragId: ID, targetId: ID, pos: 'before' | 'after' | 'inside'): boolean {
   const p = currentProject.value
   if (!p || dragId === targetId) return false
-  if (isDescendant(p, targetId, dragId)) return false
+  // 目标在拖拽源的子树内（含自身）→ 拒绝
+  if (isDescendant(p, dragId, targetId)) return false
 
   const fromItems = findParentItems(p, dragId)
   if (!fromItems) return false

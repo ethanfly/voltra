@@ -55,7 +55,7 @@ function fmtTime(ts: number): string {
             @click="onEntry(e)"
           >
             <component :is="e.requestSnapshot.protocol === 'ws' ? Wifi : Globe" :size="12" class="hp-ico" />
-            <span :class="['hp-method', e.requestSnapshot.protocol === 'ws' ? 'm-ws' : 'm-' + e.requestSnapshot.method.toLowerCase()]">
+            <span :class="['hp-method', e.requestSnapshot.protocol === 'ws' ? 'm-WS' : 'm-' + e.requestSnapshot.method.toUpperCase()]">
               {{ e.requestSnapshot.protocol === 'ws' ? 'WS' : e.requestSnapshot.method }}
             </span>
             <span class="hp-name">{{ e.requestSnapshot.name }}</span>

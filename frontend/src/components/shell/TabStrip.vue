@@ -20,8 +20,9 @@ const METHOD_LABEL: Record<string, string> = {
 }
 
 function methodClass(t: LiveTab): string {
-  if (t.request.protocol === 'ws') return 'm-ws'
-  return 'm-' + (t.request.method || 'GET').toLowerCase()
+  if (t.request.protocol === 'ws') return 'm-WS'
+  const m = (t.request.method || 'GET').toUpperCase()
+  return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].includes(m) ? 'm-' + m : 'm-UNKNOWN'
 }
 
 function tabLabel(t: LiveTab): string {

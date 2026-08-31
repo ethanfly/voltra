@@ -64,7 +64,7 @@
   color-scheme: dark;
 }
 
-/* 方法色（PRD/原型约定） */
+/* 方法色（PRD/原型约定）：类名 = 'm-' + 方法大写（WS 节点用 m-WS） */
 .m-GET {
   --mc: #3aa856;
 }
@@ -81,14 +81,31 @@
   --mc: #d64545;
 }
 .m-HEAD,
-.m-OPTIONS {
+.m-OPTIONS,
+.m-UNKNOWN {
   --mc: #6b6b74;
 }
 .m-WS {
   --mc: #12a5a5;
 }
-.m-UNKNOWN {
-  --mc: #6b6b74;
+.m-GET,
+.m-POST,
+.m-PUT,
+.m-PATCH,
+.m-DELETE,
+.m-HEAD,
+.m-OPTIONS,
+.m-UNKNOWN,
+.m-WS {
+  color: var(--mc);
+}
+
+/* 搜索命中高亮 */
+mark {
+  background: var(--brand-weak);
+  color: var(--brand);
+  border-radius: 2px;
+  padding: 0 1px;
 }
 
 /* 深色下状态文字提亮 */

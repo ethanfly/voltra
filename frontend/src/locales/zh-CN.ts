@@ -70,6 +70,7 @@ export const zhCN = {
     newWs: '新建 WebSocket',
     newFolder: '新建文件夹',
     newCollection: '新建集合',
+    duplicate: '复制副本',
     importPostman: '导入 Postman 集合',
     searchPlaceholder: '搜索接口（名称）',
     searchEmpty: '没有匹配的接口',
