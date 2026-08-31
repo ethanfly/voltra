@@ -108,7 +108,17 @@ mark {
   padding: 0 1px;
 }
 
-/* 深色下状态文字提亮 */
+/* 响应状态码颜色（深色下提亮） */
+.status-2xx {
+  color: var(--ok);
+}
+.status-3xx {
+  color: var(--warn);
+}
+.status-4xx,
+.status-5xx {
+  color: var(--error);
+}
 [data-theme='dark'] .status-2xx {
   color: #7bd88f;
 }

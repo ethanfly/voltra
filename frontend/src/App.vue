@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 六区外壳：TitleBar / ActivityBar / Sidebar / TabStrip / 编辑区(请求+响应) / StatusBar
-import { onMounted, ref, watch, computed } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import TitleBar from './components/shell/TitleBar.vue'
 import ActivityBar from './components/shell/ActivityBar.vue'
 import Sidebar from './components/shell/Sidebar.vue'
@@ -9,9 +9,10 @@ import StatusBar from './components/shell/StatusBar.vue'
 import Splitter from './components/common/Splitter.vue'
 import EmptyState from './components/common/EmptyState.vue'
 import RequestEditor from './components/request/RequestEditor.vue'
-import ResponsePanel from './components/ResponsePanel.vue'
+import ResponseViewer from './components/response/ResponseViewer.vue'
 import WSPanel from './components/WSPanel.vue'
 import { bootstrap } from './lib/persist'
+import { sendRequest } from './lib/send'
 import { tabs, activeRequest, activeTab, responses } from './stores/tabs'
 import { uiState, setSplitRatio } from './stores/ui-state'
 import type { HTTPResponseModel } from './types/models'
@@ -20,12 +21,24 @@ onMounted(() => {
   void bootstrap()
 })
 
-// ---- 编辑区（阶段 6 把 ResponsePanel 换成 ResponseViewer） ----
+// ---- 编辑区 ----
 const editorArea = ref<HTMLElement | null>(null)
 
 const activeResponse = computed<HTTPResponseModel | null>(
   () => (tabs.activeTabId ? (responses[tabs.activeTabId] ?? null) : null),
 )
+
+/** 错误卡"重试"：重发当前标签 */
+async function onRetry() {
+  const id = tabs.activeTabId
+  if (!id) return
+  try {
+    const resp = await sendRequest(id)
+    responses[id] = resp
+  } catch (e) {
+    console.error('retry failed', e)
+  }
+}
 
 function onSplit(delta: number) {
   const h = editorArea.value?.clientHeight
@@ -49,7 +62,7 @@ function onSplit(delta: number) {
             </div>
             <Splitter axis="y" @resize="onSplit" />
             <div class="pane resp-pane">
-              <ResponsePanel :response="activeResponse" />
+              <ResponseViewer :response="activeResponse" @retry="onRetry" />
             </div>
           </template>
           <div v-else-if="activeRequest && activeRequest.protocol === 'ws'" class="pane ws-pane">
@@ -102,7 +115,9 @@ function onSplit(delta: number) {
 }
 .resp-pane {
   flex: 1;
-  padding: 16px 20px;
+}
+.resp-pane :deep(.rv) {
+  padding: 0 12px 10px;
 }
 .ws-pane {
   flex: 1;

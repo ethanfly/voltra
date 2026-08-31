@@ -161,6 +161,13 @@ export const zhCN = {
       truncated: '响应超过 64MB，已截断',
       tooLargeForPretty: '响应过大，禁用 Pretty',
       binaryHint: '二进制响应（base64 编码显示）',
+      matchCount: '处匹配',
+      noMatch: '无匹配',
+      searchTooLarge: '响应过大，禁用搜索高亮',
+      jsonPathEmpty: '无匹配或表达式错误',
+      previewUnavailable: '该类型不支持预览',
+      headersEmpty: '无响应头',
+      cookiesEmpty: '响应未设置 Cookie',
     },
     cookie: {
       name: '名称',
