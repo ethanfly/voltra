@@ -77,6 +77,7 @@ export const zhCN = {
     searchPlaceholder: '搜索接口（名称）',
     searchEmpty: '没有匹配的接口',
     noProjectHint: '先新建一个项目，再添加接口',
+    generateCode: '生成代码',
   },
 
   request: {
@@ -326,6 +327,15 @@ export const zhCN = {
     envNew: '新建环境',
     newHttp: '新建 HTTP 请求',
     newWs: '新建 WebSocket',
+  },
+
+  codegen: {
+    title: '生成代码',
+    language: '语言',
+    client: '客户端',
+    rawVars: '使用变量原样（{{token}}）',
+    replaceEnv: '用当前环境真实值替换',
+    noRequest: '没有可生成代码的 HTTP 请求',
   },
 } as const
 

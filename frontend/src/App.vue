@@ -13,6 +13,7 @@ import ResponseViewer from './components/response/ResponseViewer.vue'
 import WsEditor from './components/ws/WsEditor.vue'
 import WsTimeline from './components/ws/WsTimeline.vue'
 import WsComposer from './components/ws/WsComposer.vue'
+import CodeGenDrawer from './components/codegen/CodeGenDrawer.vue'
 import { startWsBridge } from './lib/ws-bridge'
 import { bootstrap } from './lib/persist'
 import { sendRequest } from './lib/send'
@@ -83,6 +84,7 @@ function onSplit(delta: number) {
       </div>
     </div>
     <StatusBar />
+    <CodeGenDrawer />
   </div>
 </template>
 

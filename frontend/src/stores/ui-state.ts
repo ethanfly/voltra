@@ -11,6 +11,21 @@ export const activePanel = ref<PanelKind>('collections')
 /** 侧栏是否折叠（不落盘） */
 export const sidebarCollapsed = ref(false)
 
+// ---------- 生成代码抽屉（不落盘） ----------
+
+export const codegenOpen = ref(false)
+/** 指定请求节点 id；null = 当前激活标签的请求 */
+export const codegenTargetId = ref<ID | null>(null)
+
+export function openCodegen(requestId?: ID) {
+  codegenTargetId.value = requestId ?? null
+  codegenOpen.value = true
+}
+
+export function closeCodegen() {
+  codegenOpen.value = false
+}
+
 export const SIDEBAR_MIN = 240
 export const SIDEBAR_MAX = 480
 

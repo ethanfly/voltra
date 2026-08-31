@@ -63,7 +63,7 @@ export function splitUrlToQuery(url: string): { baseUrl: string; pairs: KVPair[]
  * 其余同 encodeURIComponent。这样前端预览与 Go 实际编码逐字符一致，
  * 且 split → merge 往返幂等
  */
-function queryEscape(s: string): string {
+export function queryEscape(s: string): string {
   return encodeURIComponent(s)
     .replace(/%20/g, '+')
     .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())

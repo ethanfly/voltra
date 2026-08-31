@@ -21,7 +21,7 @@ import {
   treeSearch,
 } from '../../stores/workspace'
 import { openRequest } from '../../stores/tabs'
-import { setExpanded, toggleExpanded, isExpanded } from '../../stores/ui-state'
+import { setExpanded, toggleExpanded, isExpanded, openCodegen } from '../../stores/ui-state'
 import { StorageService } from '../../api/backend'
 import { parsePostman, type PostmanImportResult } from '../../lib/postman'
 import { exportPostmanCollection } from '../../lib/postman-export'
@@ -181,6 +181,8 @@ const menuItems = computed<MenuItem[]>(() => {
       { label: Lc.tree.duplicate },
       { label: Lc.common.rename },
       { sep: true, label: '' },
+      { label: Lc.tree.generateCode },
+      { sep: true, label: '' },
       { label: Lc.common.delete, danger: true },
     ]
   }
@@ -217,6 +219,8 @@ function onMenuSelect(item: MenuItem) {
     if (k !== 'request') addFolder(n as Collection | Extract<TreeNode, { kind: 'folder' }>, '新建文件夹')
   } else if (item.label === Lc.tree.duplicate) {
     duplicateNode(n.id)
+  } else if (item.label === Lc.tree.generateCode) {
+    if (k === 'request') openCodegen(n.id)
   } else if (item.label === Lc.common.rename) {
     if (k === 'collection') startRenameColl(n as Collection)
     else externalRename.value = n.id

@@ -72,8 +72,8 @@ export function inheritedHeaderKeys(request: Request): Set<string> {
   return out
 }
 
-function resolveText(request: Request, text: string): string {
-  return resolveAll(request, text).text
+function resolveText(request: Request, text: string, resolve: boolean): string {
+  return resolve ? resolveAll(request, text).text : text
 }
 
 function b64Unicode(s: string): string {
@@ -82,18 +82,19 @@ function b64Unicode(s: string): string {
 }
 
 /** auth 注入产生的 header / query 行 */
-function authInjections(request: Request): { headers: KVPair[]; query: KVPair[] } {
+function authInjections(request: Request, resolve: boolean): { headers: KVPair[]; query: KVPair[] } {
   const auth = effectiveAuth(request)
   const headers: KVPair[] = []
   const query: KVPair[] = []
   if (auth.type === 'bearer' && auth.bearer?.token) {
-    headers.push({ key: 'Authorization', value: 'Bearer ' + resolveText(request, auth.bearer.token), enabled: true })
+    headers.push({ key: 'Authorization', value: 'Bearer ' + resolveText(request, auth.bearer.token, resolve), enabled: true })
   } else if (auth.type === 'basic' && auth.basic) {
-    const raw = resolveText(request, auth.basic.username) + ':' + resolveText(request, auth.basic.password)
+    if (!resolve) return { headers, query } // 变量原样：不注入，由生成器用语言惯用法（-u / auth= / SetBasicAuth）
+    const raw = resolveText(request, auth.basic.username, true) + ':' + resolveText(request, auth.basic.password, true)
     headers.push({ key: 'Authorization', value: 'Basic ' + b64Unicode(raw), enabled: true })
   } else if (auth.type === 'apikey' && auth.apikey) {
-    const key = resolveText(request, auth.apikey.key)
-    const value = resolveText(request, auth.apikey.value)
+    const key = resolveText(request, auth.apikey.key, resolve)
+    const value = resolveText(request, auth.apikey.value, resolve)
     if (auth.apikey.in === 'query') {
       query.push({ key, value, enabled: true })
     } else if (key) {
@@ -103,8 +104,11 @@ function authInjections(request: Request): { headers: KVPair[]; query: KVPair[] 
   return { headers, query }
 }
 
-/** 组装绑定层 HTTPRequest（变量已替换、header 已合并、auth 已注入） */
-export function buildGoRequest(request: Request): {
+/**
+ * 组装绑定层 HTTPRequest（header 已合并、auth 已注入）。
+ * opts.resolve 默认 true：变量已替换；false 时保留 {{token}} 原样（生成代码抽屉用）
+ */
+export function buildGoRequest(request: Request, opts?: { resolve?: boolean }): {
   method: string
   url: string
   headers: KVPair[]
@@ -122,10 +126,17 @@ export function buildGoRequest(request: Request): {
   insecureSkipTlsVerify: boolean
   sendCookies: boolean
 } {
+  const resolve = opts?.resolve !== false
   const body = request.body
-  const inj = authInjections(request)
+  const inj = authInjections(request, resolve)
 
   const headers = mergedHeaders(request)
+  if (resolve) {
+    for (const h of headers) {
+      h.key = resolveText(request, h.key, true)
+      h.value = resolveText(request, h.value, true)
+    }
+  }
   for (const h of inj.headers) {
     const i = headers.findIndex((x) => x.key.trim().toLowerCase() === h.key.trim().toLowerCase())
     if (i >= 0) headers[i] = h
@@ -134,7 +145,7 @@ export function buildGoRequest(request: Request): {
 
   const query: KVPair[] = []
   for (const q of request.params) {
-    if (q.enabled) query.push({ ...q, key: resolveText(request, q.key), value: resolveText(request, q.value) })
+    if (q.enabled) query.push({ ...q, key: resolveText(request, q.key, resolve), value: resolveText(request, q.value, resolve) })
   }
   for (const q of inj.query) {
     const i = query.findIndex((x) => x.key.trim().toLowerCase() === q.key.trim().toLowerCase())
@@ -145,31 +156,32 @@ export function buildGoRequest(request: Request): {
   let formData: FormField[] = []
   if (body.type === 'form-data' && body.formData) {
     formData = body.formData.map((f) => ({
-      key: resolveText(request, f.key),
-      value: f.type === 'file' ? '' : resolveText(request, f.value),
+      key: resolveText(request, f.key, resolve),
+      value: f.type === 'file' ? '' : resolveText(request, f.value, resolve),
       enabled: f.enabled,
       type: f.type,
       filePath: f.type === 'file' ? (f.filePath ?? '') : undefined,
+      description: f.description,
     }))
   }
 
   return {
     method: request.method || 'GET',
-    url: resolveText(request, request.url),
+    url: resolveText(request, request.url, resolve),
     headers,
     query,
-    body: body.type === 'raw' ? resolveText(request, body.raw ?? '') : '',
+    body: body.type === 'raw' ? resolveText(request, body.raw ?? '', resolve) : '',
     bodyType: body.type,
     rawLang: body.rawLang ?? 'text',
     urlEncoded: (body.urlencoded ?? [])
       .filter((u) => u.enabled)
-      .map((u) => ({ key: resolveText(request, u.key), value: resolveText(request, u.value), enabled: true })),
+      .map((u) => ({ key: resolveText(request, u.key, resolve), value: resolveText(request, u.value, resolve), enabled: true })),
     formData,
     binaryPath: body.binaryPath ?? '',
     graphql: body.graphql
       ? {
-          query: resolveText(request, body.graphql.query),
-          variables: resolveText(request, body.graphql.variables),
+          query: resolveText(request, body.graphql.query, resolve),
+          variables: resolveText(request, body.graphql.variables, resolve),
         }
       : null,
     timeoutMs: request.settings.timeoutMs,

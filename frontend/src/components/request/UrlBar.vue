@@ -5,7 +5,7 @@
 // {{变量}} 高亮（REQ-2/ENV-4）：镜像里渲染分段 span（已定义=品牌色，未定义=红色波浪线）；
 // 悬浮值（ENV-5）放输入框 title（镜像 pointer-events:none，无法独立悬浮）
 import { computed, ref } from 'vue'
-import { Save, Send, Loader2, X, FileTerminal } from 'lucide-vue-next'
+import { Save, Send, Loader2, X, FileTerminal, Code } from 'lucide-vue-next'
 import MethodPicker from './MethodPicker.vue'
 import CurlDialog from './CurlDialog.vue'
 import type { Request } from '../../types/models'
@@ -13,6 +13,7 @@ import { t } from '../../locales/zh-CN'
 import { segmentVars } from '../../lib/vars'
 import { varMeta } from '../../stores/env'
 import { varTitle } from '../../lib/var-ui'
+import { openCodegen } from '../../stores/ui-state'
 
 const props = defineProps<{ request: Request; sending: boolean }>()
 const emit = defineEmits<{
@@ -102,6 +103,9 @@ function applyCurl(req: Request) {
     </div>
     <button class="icon-btn" :title="L.request.pasteCurl" @click="showCurl = true">
       <FileTerminal :size="14" />
+    </button>
+    <button class="icon-btn" :title="L.request.generateCode" @click="openCodegen(request.id)">
+      <Code :size="14" />
     </button>
     <button class="icon-btn" :title="L.request.save" @click="emit('save')">
       <Save :size="14" />
