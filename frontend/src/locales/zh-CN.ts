@@ -244,6 +244,7 @@ export const zhCN = {
     empty: '还没有请求历史',
     today: '今天',
     yesterday: '昨天',
+    searchPlaceholder: '搜索名称 / URL / 方法',
     clear: '清空历史',
     clearConfirm: '确定清空全部历史记录？此操作不可恢复。',
     saveAs: '另存为接口',
