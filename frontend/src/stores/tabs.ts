@@ -1,9 +1,10 @@
 // 标签页 store：每个标签持有独立的 Request 对象（互不串数据）
 // dirty 表示"已保存过的请求被修改"或"未保存的新请求"，UI 显示圆点
 import { reactive, computed } from 'vue'
-import type { ID, Request, HTTPResponse } from '../types/models'
+import type { ID, Request, HTTPResponse, WSMessageEvent } from '../types/models'
 import { uid, newRequest } from '../types/models'
 import { scheduleSave } from '../lib/persist'
+import { WSService } from '../api/backend'
 import { findRequest } from './workspace'
 
 export interface LiveTab {
@@ -23,6 +24,13 @@ export const tabs = reactive({
 export const responses = reactive<Record<ID, HTTPResponse | null>>({})
 export const wsConnIds = reactive<Record<ID, string>>({})
 export const inFlight = reactive<Record<ID, { cancel: () => void } | null>>({})
+
+/** ws 日志条目：消息帧 / 系统状态行（连接/重连/断开） */
+export type WsLogItem =
+  | { kind: 'msg'; msg: WSMessageEvent }
+  | { kind: 'sys'; status: string; detail?: string; timestamp: number }
+export const wsLogs = reactive<Record<ID, WsLogItem[]>>({})
+export const wsStatuses = reactive<Record<ID, string>>({})
 
 export const activeTab = computed(
   () => tabs.tabs.find((t) => t.tabId === tabs.activeTabId) ?? null,
@@ -81,7 +89,12 @@ export function closeTab(tabId: ID) {
   const wasActive = tabs.activeTabId === tabId
   tabs.tabs.splice(i, 1)
   delete responses[tabId]
+  // 关掉该标签的活跃 WS 连接（Go 侧中止重连），再清运行时状态
+  const cid = wsConnIds[tabId]
+  if (cid) void WSService.Close(cid).catch(() => {})
   delete wsConnIds[tabId]
+  delete wsLogs[tabId]
+  delete wsStatuses[tabId]
   delete inFlight[tabId]
   if (wasActive) {
     tabs.activeTabId = tabs.tabs[Math.min(i, tabs.tabs.length - 1)]?.tabId ?? null

@@ -10,14 +10,18 @@ import Splitter from './components/common/Splitter.vue'
 import EmptyState from './components/common/EmptyState.vue'
 import RequestEditor from './components/request/RequestEditor.vue'
 import ResponseViewer from './components/response/ResponseViewer.vue'
-import WSPanel from './components/WSPanel.vue'
+import WsEditor from './components/ws/WsEditor.vue'
+import WsTimeline from './components/ws/WsTimeline.vue'
+import WsComposer from './components/ws/WsComposer.vue'
+import { startWsBridge } from './lib/ws-bridge'
 import { bootstrap } from './lib/persist'
 import { sendRequest } from './lib/send'
-import { tabs, activeRequest, activeTab, responses } from './stores/tabs'
+import { tabs, activeTab, responses } from './stores/tabs'
 import { uiState, setSplitRatio } from './stores/ui-state'
 import type { HTTPResponseModel } from './types/models'
 
 onMounted(() => {
+  startWsBridge()
   void bootstrap()
 })
 
@@ -65,8 +69,10 @@ function onSplit(delta: number) {
               <ResponseViewer :response="activeResponse" @retry="onRetry" />
             </div>
           </template>
-          <div v-else-if="activeRequest && activeRequest.protocol === 'ws'" class="pane ws-pane">
-            <WSPanel />
+          <div v-else-if="activeTab && activeTab.request.protocol === 'ws'" class="pane ws-pane">
+            <WsEditor :tab="activeTab" />
+            <WsTimeline :tab="activeTab" />
+            <WsComposer :tab="activeTab" />
           </div>
           <EmptyState
             v-else
@@ -121,6 +127,6 @@ function onSplit(delta: number) {
 }
 .ws-pane {
   flex: 1;
-  padding: 16px 20px;
+  overflow: hidden;
 }
 </style>
