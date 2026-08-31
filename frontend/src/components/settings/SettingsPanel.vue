@@ -1,12 +1,30 @@
 <script setup lang="ts">
 // 设置面板：主题 / 语言 / 默认超时 / 字号 / URL 协议补全 + 数据目录
 import { computed } from 'vue'
-import { FolderOpen, Download } from 'lucide-vue-next'
-import { settings, setSettings } from '../../stores/settings'
+import { FolderOpen, Download, Archive } from 'lucide-vue-next'
+import { settings, setSettings, APP_VERSION } from '../../stores/settings'
+import { workspace } from '../../stores/workspace'
+import { env } from '../../stores/env'
+import { historyStore } from '../../stores/history'
 import { StorageService } from '../../api/backend'
 import { t } from '../../locales/zh-CN'
 
 const L = computed(() => t())
+
+/** SET-2：导出全部数据备份（项目+环境+全局变量+设置+历史）为单个 JSON */
+async function exportBackup() {
+  const data = {
+    voltraBackup: 1,
+    version: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    projects: workspace.projects,
+    globalVariables: env.globalVars,
+    settings: { ...settings },
+    history: historyStore.entries,
+  }
+  const name = `voltra-backup-${new Date().toISOString().slice(0, 10)}.json`
+  await StorageService.SaveFile(name, JSON.stringify(data, null, 2))
+}
 
 function onTimeoutInput(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10)
@@ -86,6 +104,13 @@ function onFontSizeInput(e: Event) {
       <button class="btn sp-dir-btn" :title="L.settings.openDataDir" @click="void StorageService.OpenDataDir()">
         <FolderOpen :size="13" /> {{ L.settings.openDataDir }}
       </button>
+      <button class="btn sp-dir-btn" @click="void exportBackup()">
+        <Download :size="13" /> {{ L.settings.exportBackup }}
+      </button>
+    </div>
+
+    <div class="sp-version">
+      <Archive :size="12" /> {{ L.settings.version }} {{ APP_VERSION }}
     </div>
   </div>
 </template>
@@ -109,7 +134,7 @@ function onFontSizeInput(e: Event) {
 }
 .sp-select {
   width: 100%;
-  height: 28px;
+  height: var(--input-h);
   font-size: 12px;
 }
 .sp-check-sec {
@@ -128,5 +153,13 @@ function onFontSizeInput(e: Event) {
 .sp-dir-btn {
   justify-content: flex-start;
   width: 100%;
+}
+.sp-version {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-faint);
+  padding: 4px 2px 0;
 }
 </style>

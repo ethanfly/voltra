@@ -7,6 +7,7 @@ import { StorageService } from '../../api/backend'
 import { saveStatus } from '../../lib/persist'
 import { currentProject } from '../../stores/workspace'
 import { currentEnv } from '../../stores/env'
+import { APP_VERSION } from '../../stores/settings'
 import { t } from '../../locales/zh-CN'
 
 const L = computed(() => t())
@@ -46,7 +47,7 @@ const saveText = computed(() => {
       {{ currentProject.name }}
       <template v-if="currentEnv"> · {{ currentEnv.name }}</template>
     </span>
-    <span class="sb-item sb-version">v0.2.0</span>
+    <span class="sb-item sb-version">v{{ APP_VERSION }}</span>
   </footer>
 </template>
 

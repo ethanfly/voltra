@@ -6,6 +6,9 @@ import { scheduleSave } from '../lib/persist'
 
 export const settings = reactive<AppSettings>({ ...defaultSettings() })
 
+/** 应用版本（与 build/config.yml 保持一致） */
+export const APP_VERSION = '0.2.0'
+
 let themeWatcherStarted = false
 
 /** 根据设置应用 data-theme 到 <html>（system 跟随系统偏好） */

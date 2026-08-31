@@ -333,6 +333,7 @@ const hexSummary = computed(() => (isBinary.value ? binaryHexSummary(text.value)
   min-height: 0;
   border: none;
   border-radius: var(--radius-sm);
+  /* 有意固定白底：预览的是外部 HTML 页面，跟随主题会破坏无背景色的页面 */
   background: #fff;
 }
 .rb-binary {
