@@ -89,7 +89,9 @@ const baseTheme = EditorView.theme({
     color: 'var(--text)',
   },
   '.cm-scroller': { fontFamily: 'var(--mono)', lineHeight: '1.6' },
-  '.cm-content': { padding: '6px 0' },
+  // 左右留白：原 '6px 0' 文字贴左右边缘（用户实测反馈"看着难受"）；一处改动作用于
+  // 所有 CM6 用法（脚本 / Body raw / GraphQL / 响应 Pretty / 代码生成 / WS 输入）
+  '.cm-content': { padding: '8px 14px' },
   '.cm-gutters': {
     backgroundColor: 'var(--bg-sunken)',
     color: 'var(--text-faint)',
@@ -266,8 +268,9 @@ defineExpose({ format, getView: () => view })
 }
 .ce-ph {
   position: absolute;
-  top: 6px;
-  left: 30px;
+  /* 与 .cm-content 的 padding 8px 14px 对齐（无行号槽的 text/js 下文字起点） */
+  top: 8px;
+  left: 14px;
   font-size: 12px;
   color: var(--text-faint);
   pointer-events: none;

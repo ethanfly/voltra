@@ -3,11 +3,12 @@
 // 无边框窗口：整条顶栏是可拖拽区（--wails-draggable），双键点击切换最大化；
 // 内部所有按钮/输入框显式 no-drag，避免按下按钮时拖动窗口
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Zap, ChevronDown, Plus, Trash2, Settings, Sun, Moon, Monitor, Layers, Minus, Square, Copy, X } from 'lucide-vue-next'
+import { Zap, ChevronDown, Plus, Trash2, Pencil, Settings, Sun, Moon, Monitor, Layers, Minus, Square, Copy, X } from 'lucide-vue-next'
 import { Window, Events } from '@wailsio/runtime'
 import Dropdown from '../common/Dropdown.vue'
 import Modal from '../common/Modal.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PromptDialog from '../common/PromptDialog.vue'
 import {
   workspace,
   currentProject,
@@ -16,7 +17,14 @@ import {
   setCurrentProject,
   findRequest,
 } from '../../stores/workspace'
-import { env, currentEnv, setCurrentEnv } from '../../stores/env'
+import {
+  env,
+  currentEnv,
+  setCurrentEnv,
+  addEnvToProject,
+  renameEnv,
+  removeEnvFromProject,
+} from '../../stores/env'
 import { tabs } from '../../stores/tabs'
 import { settings, setSettings } from '../../stores/settings'
 import { activePanel } from '../../stores/ui-state'
@@ -56,6 +64,36 @@ function doDeleteProject() {
   }
   env.currentEnvId = null
   removeProject(p.id)
+}
+
+// ---------- 环境下拉：新建（弹窗）/ 改名（弹窗）/ 删除（确认） ----------
+const envPrompt = ref<{ mode: 'new' | 'rename'; envId?: string; initialValue?: string } | null>(null)
+const envToDelete = ref<string | null>(null)
+
+function openNewEnv() {
+  envPrompt.value = { mode: 'new' }
+}
+function openRenameEnv(id: string, name: string) {
+  envPrompt.value = { mode: 'rename', envId: id, initialValue: name }
+}
+function confirmEnvPrompt(name: string) {
+  const p = envPrompt.value
+  envPrompt.value = null
+  if (!p) return
+  if (p.mode === 'new') {
+    const e = addEnvToProject(name)
+    if (e) setCurrentEnv(e.id)
+  } else if (p.envId) {
+    renameEnv(p.envId, name)
+  }
+}
+function askDeleteEnv(id: string) {
+  envToDelete.value = id
+}
+function doDeleteEnv() {
+  const id = envToDelete.value
+  envToDelete.value = null
+  if (id) removeEnvFromProject(id)
 }
 
 const themeOptions = [
@@ -153,29 +191,39 @@ async function onClose() {
         </button>
       </template>
       <template #default="{ close }">
-        <button
-          :class="['menu-item', 'menu-btn', { active: env.currentEnvId === null }]"
-          @click="setCurrentEnv(null); close()"
-        >
-          {{ L.titleBar.envNone }}
-        </button>
-        <template v-if="currentProject">
+        <div class="env-menu">
           <button
-            v-for="e in currentProject.environments"
-            :key="e.id"
-            :class="['menu-item', 'menu-btn', { active: e.id === env.currentEnvId }]"
-            @click="setCurrentEnv(e.id); close()"
+            :class="['menu-item', 'menu-btn', { active: env.currentEnvId === null }]"
+            @click="setCurrentEnv(null); close()"
           >
-            {{ e.name }}
+            {{ L.titleBar.envNone }}
           </button>
-          <div class="menu-sep"></div>
-          <button
-            class="menu-item menu-btn"
-            @click="activePanel = 'environments'; close()"
-          >
-            {{ L.env.empty }} → {{ L.common.open }}
-          </button>
-        </template>
+          <template v-if="currentProject">
+            <div
+              v-for="e in currentProject.environments"
+              :key="e.id"
+              :class="['menu-item', 'menu-btn', 'env-row', { active: e.id === env.currentEnvId }]"
+              @click="setCurrentEnv(e.id); close()"
+            >
+              <span class="env-row-name" :title="e.name">{{ e.name }}</span>
+              <span class="env-row-actions">
+                <button class="env-act" :title="L.common.rename" @click.stop="openRenameEnv(e.id, e.name); close()">
+                  <Pencil :size="13" />
+                </button>
+                <button class="env-act env-act-del" :title="L.common.delete" @click.stop="askDeleteEnv(e.id); close()">
+                  <Trash2 :size="13" />
+                </button>
+              </span>
+            </div>
+            <div class="menu-sep"></div>
+            <button class="menu-item menu-btn" @click="openNewEnv(); close()">
+              <Plus :size="13" /> {{ L.dialog.envNew }}
+            </button>
+            <button class="menu-item menu-btn" @click="activePanel = 'environments'; close()">
+              <Layers :size="13" /> {{ L.dialog.envManage }}
+            </button>
+          </template>
+        </div>
       </template>
     </Dropdown>
 
@@ -259,6 +307,23 @@ async function onClose() {
       :danger="true"
       @confirm="doDeleteProject"
       @cancel="confirmDeleteProject = false"
+    />
+
+    <PromptDialog
+      v-if="envPrompt"
+      :title="envPrompt.mode === 'new' ? L.dialog.envNew : L.dialog.envRename"
+      :placeholder="L.dialog.envNewPlaceholder"
+      :initial-value="envPrompt.initialValue ?? ''"
+      @confirm="confirmEnvPrompt"
+      @cancel="envPrompt = null"
+    />
+    <ConfirmDialog
+      v-if="envToDelete"
+      :title="L.common.confirmDelete"
+      :message="L.dialog.envDeleteConfirm"
+      :danger="true"
+      @confirm="doDeleteEnv"
+      @cancel="envToDelete = null"
     />
   </header>
 </template>
@@ -353,6 +418,44 @@ async function onClose() {
   height: 1px;
   background: var(--border);
   margin: 4px 0;
+}
+/* 环境下拉：行内 hover 显示改名/删除，名称点击选中 */
+.env-menu {
+  min-width: 200px;
+}
+.env-row-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.env-row-actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.env-row:hover .env-row-actions {
+  opacity: 1;
+}
+.env-act {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.env-act:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.env-act-del:hover {
+  background: var(--error-weak);
+  color: var(--error);
 }
 .win-ctrls {
   display: flex;

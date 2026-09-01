@@ -3,11 +3,12 @@
 // （侧栏 240–480px 塞不下 键/初始值/当前值/启用 四列表格，用户实测反馈 → 拆成整页）
 // 页面始终显示"当前环境"（env.currentEnvId，标题栏切换）的变量 + 项目级 + 全局；
 // 变量行在 VarTable 中原地编辑，onCommit 落盘
-import { computed } from 'vue'
-import { X } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { X, Pencil } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import VarTable from './VarTable.vue'
-import { env, currentEnv } from '../../stores/env'
+import PromptDialog from '../common/PromptDialog.vue'
+import { env, currentEnv, renameEnv } from '../../stores/env'
 import { currentProject } from '../../stores/workspace'
 import { closeVarPage } from '../../stores/ui-state'
 import { scheduleSave } from '../../lib/persist'
@@ -16,6 +17,13 @@ import { t } from '../../locales/zh-CN'
 const L = computed(() => t())
 const p = computed(() => currentProject.value)
 const activeEnv = computed(() => currentEnv.value)
+
+// 点环境名 pill 直接改名（与标题栏下拉同一入口的超集）
+const showRenameEnv = ref(false)
+function confirmRenameEnv(name: string) {
+  showRenameEnv.value = false
+  if (activeEnv.value) renameEnv(activeEnv.value.id, name)
+}
 
 function commit() {
   if (p.value) p.value.updatedAt = Date.now()
@@ -30,7 +38,14 @@ function commitGlobal() {
   <div class="vp">
     <header class="vp-head">
       <span class="vp-title">{{ L.env.vars }}</span>
-      <span v-if="activeEnv" class="vp-env-tag">{{ activeEnv.name }}</span>
+      <button
+        v-if="activeEnv"
+        class="vp-env-tag"
+        :title="L.common.rename"
+        @click="showRenameEnv = true"
+      >
+        <Pencil :size="11" /> {{ activeEnv.name }}
+      </button>
       <span v-else class="vp-env-tag muted">{{ L.env.noEnv }}</span>
       <button class="icon-btn vp-close" :title="L.common.close" @click="closeVarPage()">
         <X :size="15" />
@@ -72,6 +87,15 @@ function commitGlobal() {
         </section>
       </template>
     </div>
+
+    <PromptDialog
+      v-if="showRenameEnv && activeEnv"
+      :title="L.dialog.envRename"
+      :placeholder="L.dialog.envNewPlaceholder"
+      :initial-value="activeEnv.name"
+      @confirm="confirmRenameEnv"
+      @cancel="showRenameEnv = false"
+    />
   </div>
 </template>
 
@@ -99,20 +123,31 @@ function commitGlobal() {
   color: var(--text);
 }
 .vp-env-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 600;
+  font-family: inherit;
   color: var(--brand);
   background: var(--brand-weak);
+  border: 1px solid transparent;
   border-radius: 999px;
   padding: 2px 10px;
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--ease);
+}
+.vp-env-tag:not(.muted):hover {
+  border-color: var(--brand);
 }
 .vp-env-tag.muted {
   color: var(--text-dim);
   background: var(--bg-hover);
+  cursor: default;
 }
 .vp-close {
   margin-left: auto;
@@ -121,22 +156,27 @@ function commitGlobal() {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 14px 16px 24px;
+  padding: 20px 22px 28px;
 }
 .vp-sec {
-  margin-bottom: 18px;
+  margin-bottom: 26px;
+}
+.vp-sec:last-child {
+  margin-bottom: 0;
 }
 .vp-sec-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 .vp-sec-head h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--text);
 }
 .vp-sec-sub {
   color: var(--text-faint);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Body：none / raw(CM6+格式化) / urlencoded / form-data(文本·文件) / binary / graphql
 import { ref } from 'vue'
-import { FileUp, Trash2 } from 'lucide-vue-next'
+import { FileUp, Trash2, Plus } from 'lucide-vue-next'
 import Segmented from '../common/Segmented.vue'
 import KvEditor from '../common/KvEditor.vue'
 import CodeEditor, { type CodeLang } from '../common/CodeEditor.vue'
@@ -120,9 +120,21 @@ function removeFormRow(f: FormField) {
       <!-- urlencoded（setType 已保证数组存在；KvEditor 原地修改，无需 emit） -->
       <KvEditor v-else-if="request.body.type === 'urlencoded'" :model-value="request.body.urlencoded!" />
 
-      <!-- form-data -->
+      <!-- form-data（与 Params 同款：表头行 + 有边框输入框，未聚焦也可见轮廓） -->
       <div v-else-if="request.body.type === 'form-data'" class="fd">
-        <div v-for="(f, idx) in request.body.formData ?? []" :key="idx" class="fd-row" :class="{ disabled: !f.enabled }">
+        <div class="fd-head">
+          <span class="fd-cb"></span>
+          <span>{{ L.request.kv.key }}</span>
+          <span class="fd-h-type">{{ L.request.kv.type }}</span>
+          <span>{{ L.request.kv.value }}</span>
+          <span class="fd-h-sp"></span>
+        </div>
+        <div
+          v-for="(f, idx) in request.body.formData ?? []"
+          :key="idx"
+          class="fd-row"
+          :class="{ disabled: !f.enabled }"
+        >
           <input type="checkbox" v-model="f.enabled" />
           <input class="fd-in" v-model="f.key" :placeholder="L.request.kv.key" />
           <select class="fd-type" :value="f.type" @change="setFormType(f, ($event.target as HTMLSelectElement).value)">
@@ -135,23 +147,23 @@ function removeFormRow(f: FormField) {
             v-model="f.value"
             :placeholder="L.request.kv.value"
           />
-          <template v-else>
+          <div v-else class="fd-file">
             <span class="fd-path">{{ f.filePath || '未选择文件' }}</span>
             <button class="btn fd-pick" @click="pickFormFile(f)">
               <FileUp :size="12" /> {{ L.request.body.binaryPickFile }}
             </button>
-          </template>
+          </div>
           <button class="icon-btn fd-del" :title="L.common.delete" @click="removeFormRow(f)">
-            <Trash2 :size="12" />
+            <Trash2 :size="13" />
           </button>
         </div>
         <button
-          class="btn"
+          class="btn fd-add"
           @click="
             (request.body.formData ??= []).push({ key: '', value: '', enabled: true, type: 'text' })
           "
         >
-          {{ L.request.kv.addRow }}
+          <Plus :size="13" /> {{ L.request.kv.addRow }}
         </button>
       </div>
 
@@ -234,39 +246,70 @@ function removeFormRow(f: FormField) {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 8px 10px;
   overflow: auto;
 }
+.fd-head,
 .fd-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: var(--row-h);
+}
+.fd-head {
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 0 2px;
+}
+.fd-cb {
+  width: 13px;
+  flex-shrink: 0;
+}
+/* 键 / 值 列 flex 撑满，类型列固定宽，与下方输入框列对齐 */
+.fd-head > span:nth-child(2),
+.fd-head > span:nth-child(4) {
+  flex: 1;
+  min-width: 0;
+}
+.fd-h-type {
+  width: 56px;
+  flex-shrink: 0;
+}
+.fd-h-sp {
+  width: 30px;
+  flex-shrink: 0;
+}
+.fd-row {
+  height: 32px;
 }
 .fd-row input[type='checkbox'] {
   accent-color: var(--brand);
   flex-shrink: 0;
   margin: 0;
+  width: 13px;
+  height: 13px;
 }
+/* 与 .kve-in 一致：未聚焦也有 elev 底 + 边框，聚焦品牌色（原 transparent 底在深色下隐形） */
 .fd-in {
   flex: 1;
   min-width: 0;
-  height: 24px;
+  height: 26px;
   padding: 0 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--bg-elev);
   color: var(--text);
   font-size: 12px;
   font-family: var(--mono);
   outline: none;
+  transition: border-color var(--ease), box-shadow var(--ease);
 }
 .fd-in:focus {
   border-color: var(--brand);
-  background: var(--bg-elev);
+  box-shadow: 0 0 0 2px var(--brand-weak);
 }
 .fd-type {
-  height: 24px;
+  width: 56px;
+  height: 26px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-elev);
@@ -277,6 +320,13 @@ function removeFormRow(f: FormField) {
   cursor: pointer;
   flex-shrink: 0;
 }
+.fd-file {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .fd-path {
   font-family: var(--mono);
   font-size: 11px;
@@ -284,7 +334,7 @@ function removeFormRow(f: FormField) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 40%;
+  min-width: 0;
 }
 .fd-pick {
   flex-shrink: 0;
@@ -297,12 +347,20 @@ function removeFormRow(f: FormField) {
 }
 .fd-del {
   opacity: 0;
-  width: 18px;
-  height: 18px;
   flex-shrink: 0;
 }
 .fd-row:hover .fd-del {
   opacity: 1;
+}
+.fd-add {
+  align-self: flex-start;
+  margin-top: 2px;
+  font-size: 12px;
+  height: 26px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .fd-row.disabled .fd-in,
 .fd-row.disabled .fd-path {

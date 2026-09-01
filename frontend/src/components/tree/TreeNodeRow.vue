@@ -3,17 +3,22 @@
 // 原生 DnD（before/after/inside）、右键菜单（向父级 emit）
 // 递归渲染：SFC 通过文件名隐式自引用
 import { computed, ref, watch } from 'vue'
-import { ChevronRight, ChevronDown, Folder, Globe, Wifi } from 'lucide-vue-next'
-import type { TreeNode, Request, ID } from '../../types/models'
-import { isExpanded, toggleExpanded } from '../../stores/ui-state'
+import { ChevronRight, ChevronDown, Pencil, Trash2, FilePlus2 } from 'lucide-vue-next'
+import type { TreeNode, Request, ID, Folder } from '../../types/models'
+import { isExpanded, toggleExpanded, setExpanded } from '../../stores/ui-state'
 import { activeRequest, openRequest } from '../../stores/tabs'
 import {
   currentProject,
   renameNode,
   moveNode,
   isDescendant,
+  addRequest,
 } from '../../stores/workspace'
+import { nodeIcon } from '../../lib/tree-icons'
 import { dragNodeId, dragIsCollection, dropTarget, resetDnd, type DropPos } from './dnd-state'
+import { t } from '../../locales/zh-CN'
+
+const L = t()
 
 const props = withDefaults(
   defineProps<{ node: TreeNode; level?: number; externalRename?: ID | null }>(),
@@ -23,6 +28,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'menu', node: TreeNode, x: number, y: number): void
   (e: 'rename-done'): void
+  (e: 'focus-rename', id: ID): void
+  (e: 'delete', node: TreeNode): void
 }>()
 
 const isRequest = computed(() => props.node.kind === 'request')
@@ -63,13 +70,28 @@ function cancelRename() {
   emit('rename-done')
 }
 
-// 右键菜单"重命名"：面板把 externalRename 设为本节点 id
+// 新建/右键"重命名"：面板把 externalRename 设为本节点 id。
+// immediate:true——新建节点的行是挂载后才发现 externalRename 已等于其 id（同一 handler 内同步设置），
+// 非 immediate 的 watch 只捕获"变更"，会漏掉"挂载即匹配"的聚焦
 watch(
   () => props.externalRename,
   (v) => {
     if (v === props.node.id) startRename()
   },
+  { immediate: true },
 )
+
+// ---------- hover 快捷按钮 ----------
+/** 文件夹行：新建请求（作为该文件夹最后一个子节点），展开父级并聚焦改名 */
+function onHoverNewRequest() {
+  if (isRequest.value) return
+  const r = addRequest(props.node as Folder)
+  setExpanded(props.node.id, true)
+  emit('focus-rename', r.id)
+}
+function onHoverDelete() {
+  emit('delete', props.node)
+}
 
 // ---------- 点击 ----------
 function onClick() {
@@ -173,12 +195,24 @@ function onDragEnd() {
       />
     </template>
     <template v-else>
-      <component :is="req ? (req.protocol === 'ws' ? Wifi : Globe) : Folder" :size="13" class="tn-ico" />
+      <component :is="nodeIcon(node)" :size="13" class="tn-ico" />
       <span class="tn-name" :title="node.name">
         <template v-if="req">
           <span :class="['tn-method', methodClass(req)]">{{ req.protocol === 'ws' ? 'WS' : req.method }}</span>
         </template>
         {{ node.name }}
+      </span>
+      <!-- hover 快捷按钮：文件夹多一个"新建请求"；请求只有改名/删除 -->
+      <span class="tn-acts">
+        <button v-if="!isRequest" class="tn-act" :title="L.tree.newRequest" @click.stop="onHoverNewRequest">
+          <FilePlus2 :size="13" />
+        </button>
+        <button class="tn-act" :title="L.common.rename" @click.stop="startRename">
+          <Pencil :size="13" />
+        </button>
+        <button class="tn-act tn-act-del" :title="L.common.delete" @click.stop="onHoverDelete">
+          <Trash2 :size="13" />
+        </button>
       </span>
     </template>
 
@@ -195,6 +229,8 @@ function onDragEnd() {
       :external-rename="externalRename"
       @menu="(n, x, y) => $emit('menu', n, x, y)"
       @rename-done="$emit('rename-done')"
+      @focus-rename="(id) => $emit('focus-rename', id)"
+      @delete="(n) => $emit('delete', n)"
     />
   </div>
 </template>
@@ -256,6 +292,8 @@ function onDragEnd() {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -266,6 +304,36 @@ function onDragEnd() {
   letter-spacing: 0.3px;
   flex-shrink: 0;
   min-width: 30px;
+}
+/* hover 快捷按钮：默认隐藏，行 hover 时淡入（对齐 .coll-del 的 reveal 模式） */
+.tn-acts {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.tn-row:hover .tn-acts {
+  opacity: 1;
+}
+.tn-act {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.tn-act:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.tn-act-del:hover {
+  background: var(--error-weak);
+  color: var(--error);
 }
 .tn-rename {
   flex: 1;

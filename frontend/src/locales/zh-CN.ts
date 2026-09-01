@@ -106,6 +106,7 @@ export const zhCN = {
     kv: {
       key: '键',
       value: '值',
+      type: '类型',
       description: '描述',
       addRow: '添加一行',
       inherited: '继承自父级',
@@ -333,6 +334,10 @@ export const zhCN = {
     importFailed: '导入失败',
     collectionNew: '新建集合',
     envNew: '新建环境',
+    envNewPlaceholder: '环境名称',
+    envRename: '重命名环境',
+    envDeleteConfirm: '确定删除该环境及其所有变量？',
+    envManage: '管理环境',
     newHttp: '新建 HTTP 请求',
     newWs: '新建 WebSocket',
   },

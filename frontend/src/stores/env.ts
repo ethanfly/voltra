@@ -94,8 +94,11 @@ export function addEnvToProject(name: string): Environment | null {
 }
 
 export function renameEnv(envId: ID, name: string) {
-  const e = currentEnv.value
-  if (e && e.id === envId) e.name = name
+  const p = currentProject.value
+  const e = p?.environments.find((x) => x.id === envId)
+  if (!e) return
+  e.name = name
+  p!.updatedAt = Date.now()
   scheduleSave('projects')
 }
 

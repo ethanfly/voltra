@@ -2,7 +2,7 @@
 // 接口集合面板：搜索（平铺+面包屑+高亮）/ 树（仅渲染展开子级）/
 // 集合行（内联重命名·拖拽排序·右键）/ 空状态三按钮
 import { computed, ref } from 'vue'
-import { Search, Plus, FilePlus2, FolderPlus, Folder, Trash2, ChevronDown, ChevronRight, Upload, Download } from 'lucide-vue-next'
+import { Search, Plus, FilePlus2, FolderPlus, Trash2, Pencil, ChevronDown, ChevronRight, Upload, Download } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
@@ -33,6 +33,7 @@ import {
   type DropPos,
 } from './dnd-state'
 import { scheduleSave } from '../../lib/persist'
+import { nodeIcon } from '../../lib/tree-icons'
 import type { ID, Collection, TreeNode, Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 
@@ -87,16 +88,37 @@ function targetCollection(): Collection | null {
   if (pr.collections.length > 0) return pr.collections[0]
   return addCollection('新集合')
 }
+// 新建即聚焦：展开父级 + externalRename=新节点 id，树行挂载时自动进入内联改名（敲字即命名）
 function onNewRequest() {
   const c = targetCollection()
-  if (c) addRequest(c)
+  if (c) {
+    const r = addRequest(c)
+    setExpanded(c.id, true)
+    externalRename.value = r.id
+  }
 }
 function onNewFolder() {
   const c = targetCollection()
-  if (c) addFolder(c, '新建文件夹')
+  if (c) {
+    const f = addFolder(c, '新建文件夹')
+    setExpanded(c.id, true)
+    externalRename.value = f.id
+  }
 }
 function onNewCollection() {
-  addCollection('新集合')
+  const c = addCollection('新集合')
+  if (c) startRenameColl(c)
+}
+// 集合行 hover 快捷按钮：在指定集合下新建并聚焦改名
+function hoverNewRequest(c: Collection) {
+  const r = addRequest(c)
+  setExpanded(c.id, true)
+  externalRename.value = r.id
+}
+function hoverNewFolder(c: Collection) {
+  const f = addFolder(c, '新建文件夹')
+  setExpanded(c.id, true)
+  externalRename.value = f.id
 }
 
 // ---------- 集合行：内联重命名 ----------
@@ -229,6 +251,11 @@ function onMenuSelect(item: MenuItem) {
   }
 }
 
+// TreeNodeRow hover 删除按钮 → 走同一套 pendingDelete + ConfirmDialog
+function onDeleteNode(n: TreeNode) {
+  pendingDelete.value = { id: n.id, name: n.name, isCollection: false }
+}
+
 function doDelete() {
   const d = pendingDelete.value
   pendingDelete.value = null
@@ -342,7 +369,7 @@ async function onExportProject() {
                 {{ h.req.protocol === 'ws' ? 'WS' : h.req.method }}
               </span>
             </template>
-            <Folder v-else :size="12" class="cp-crumb-ico" />
+            <component :is="nodeIcon(h.node)" v-else :size="12" class="cp-crumb-ico" />
             <span v-html="highlightName(h.node.name)"></span>
           </div>
         </div>
@@ -371,7 +398,7 @@ async function onExportProject() {
               <ChevronDown v-if="isExpanded(c.id)" :size="12" />
               <ChevronRight v-else :size="12" />
             </button>
-            <Folder :size="13" class="coll-ico" />
+            <component :is="nodeIcon(c)" :size="13" class="coll-ico" />
             <input
               v-if="renamingCollId === c.id"
               ref="renameCollInput"
@@ -391,13 +418,24 @@ async function onExportProject() {
             >
               {{ c.name }}
             </span>
-            <button
-              class="coll-del"
-              :title="L.common.delete"
-              @click="pendingDelete = { id: c.id, name: c.name, isCollection: true }"
-            >
-              <Trash2 :size="13" />
-            </button>
+            <span v-if="renamingCollId !== c.id" class="coll-acts">
+              <button class="coll-act" :title="L.tree.newRequest" @click.stop="hoverNewRequest(c)">
+                <FilePlus2 :size="13" />
+              </button>
+              <button class="coll-act" :title="L.tree.newFolder" @click.stop="hoverNewFolder(c)">
+                <FolderPlus :size="13" />
+              </button>
+              <button class="coll-act" :title="L.common.rename" @click.stop="startRenameColl(c)">
+                <Pencil :size="13" />
+              </button>
+              <button
+                class="coll-act coll-act-del"
+                :title="L.common.delete"
+                @click.stop="pendingDelete = { id: c.id, name: c.name, isCollection: true }"
+              >
+                <Trash2 :size="13" />
+              </button>
+            </span>
           </div>
           <div v-if="isExpanded(c.id)">
             <TreeNodeRow
@@ -408,6 +446,8 @@ async function onExportProject() {
               :external-rename="externalRename"
               @menu="onNodeMenu"
               @rename-done="externalRename = null"
+              @focus-rename="externalRename = $event"
+              @delete="onDeleteNode"
             />
           </div>
         </div>
@@ -619,8 +659,17 @@ async function onExportProject() {
   font-size: 12px;
   outline: none;
 }
-.coll-del {
-  display: none;
+.coll-acts {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  flex-shrink: 0;
+}
+.coll-head:hover .coll-acts {
+  opacity: 1;
+}
+.coll-act {
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 22px;
@@ -632,10 +681,11 @@ async function onExportProject() {
   cursor: pointer;
   flex-shrink: 0;
 }
-.coll-head:hover .coll-del {
-  display: flex;
+.coll-act:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
-.coll-del:hover {
+.coll-act-del:hover {
   background: var(--error-weak);
   color: var(--error);
 }

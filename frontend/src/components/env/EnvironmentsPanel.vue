@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { Plus, Trash2, Pencil, Upload, Download, PanelRightOpen } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
+import PromptDialog from '../common/PromptDialog.vue'
 import {
   env,
   currentEnv,
@@ -29,8 +30,14 @@ function commit() {
   scheduleSave('projects')
 }
 
+const showNewEnv = ref(false)
 function onAddEnv() {
-  addEnvToProject('新环境')
+  showNewEnv.value = true
+}
+function confirmNewEnv(name: string) {
+  showNewEnv.value = false
+  const e = addEnvToProject(name)
+  if (e) env.currentEnvId = e.id
 }
 
 // 重命名（双击进入）
@@ -169,6 +176,14 @@ async function onExportEnv() {
         :message="envError"
         @confirm="envError = null"
         @cancel="envError = null"
+      />
+
+      <PromptDialog
+        v-if="showNewEnv"
+        :title="L.dialog.envNew"
+        :placeholder="L.dialog.envNewPlaceholder"
+        @confirm="confirmNewEnv"
+        @cancel="showNewEnv = false"
       />
     </template>
   </div>

@@ -58,12 +58,14 @@ function removeRow(v: Variable) {
             </div>
           </td>
           <td class="vt-td-act">
-            <label class="vt-check">
-              <input v-model="v.enabled" type="checkbox" @change="commit" />
-            </label>
-            <button class="vt-act" :title="L.common.delete" @click="removeRow(v)">
-              <Trash2 :size="14" />
-            </button>
+            <div class="vt-act-group">
+              <label class="vt-check">
+                <input v-model="v.enabled" type="checkbox" @change="commit" />
+              </label>
+              <button class="vt-act" :title="L.common.delete" @click="removeRow(v)">
+                <Trash2 :size="14" />
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -90,15 +92,16 @@ function removeRow(v: Variable) {
   table-layout: fixed;
   font-size: 12px;
 }
-/* 固定列宽比例，避免 auto 布局下长内容把邻列挤扁 */
+/* 均衡列宽：原"当前值 auto 吃满 + 启用 64px 悬在右缘"视觉失衡（用户实测反馈），
+   改为键 20% / 初始值 26% / 当前值 34% / 启用 20%，启用列内容与表头居中 */
 .vt-table th:nth-child(1) {
-  width: 28%;
+  width: 20%;
 }
 .vt-table th:nth-child(2) {
   width: 26%;
 }
 .vt-table th:nth-child(3) {
-  width: auto;
+  width: 34%;
 }
 .vt-table th {
   text-align: left;
@@ -108,8 +111,13 @@ function removeRow(v: Variable) {
   padding: 4px 6px;
   border-bottom: 1px solid var(--border);
 }
+/* 启用列（第 4 列）：比 .vt-table th 的 text-align:left 更具体，表头居中 */
+.vt-table th.vt-th-act {
+  width: 20%;
+  text-align: center;
+}
 .vt-table td {
-  padding: 4px 6px;
+  padding: 6px;
   vertical-align: middle;
 }
 .cell {
@@ -128,11 +136,14 @@ function removeRow(v: Variable) {
   flex: 1;
 }
 .vt-td-act {
-  white-space: nowrap;
-  width: 64px;
+  text-align: center;
+  vertical-align: middle;
 }
-.vt-th-act {
-  width: 64px;
+.vt-act-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 .vt-check {
   display: inline-flex;
