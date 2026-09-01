@@ -139,6 +139,13 @@ body,
   height: 100%;
 }
 
+/* 页面缩放（lib/zoom.ts 维护 --app-zoom）：zoom 让布局盒按 1/zoom 收缩重排，
+   放大后整页流式适配窗口，不出现页面级滚动条（Wails webview 的 magnification
+   是纯渲染放大不重排，已弃用） */
+#app {
+  zoom: var(--app-zoom, 1);
+}
+
 body {
   margin: 0;
   font-family: var(--font);
@@ -184,7 +191,7 @@ textarea::placeholder {
 /* ---------- 通用控件 ---------- */
 
 .btn {
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--bg-elev);
@@ -232,8 +239,8 @@ textarea::placeholder {
 }
 
 .icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: grid;
   place-items: center;
   border: none;
@@ -253,15 +260,18 @@ textarea::placeholder {
   background: var(--brand-weak);
 }
 
+/* 未聚焦态也要能看清"这是个输入框"：elev 底（深色下比面板亮一档）+ 强边框，
+   只靠 faint 边框在深色下几乎与背景融为一体（用户实测反馈） */
 .input {
   height: var(--input-h);
   padding: 0 10px;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg-sunken);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev);
   outline: none;
-  transition: border-color var(--ease);
+  transition: border-color var(--ease), box-shadow var(--ease);
 }
 .input:focus {
   border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-weak);
 }

@@ -8,7 +8,7 @@ import type {
   FormField,
   HTTPResponse,
 } from '../types/models'
-import { uid } from '../types/models'
+import { uid, cloneDeep } from '../types/models'
 import { resolveAll } from '../stores/env'
 import { tabs, inFlight } from '../stores/tabs'
 import { findRequest, nodeAncestors } from '../stores/workspace'
@@ -204,7 +204,7 @@ export async function sendRequest(tabId: string): Promise<HTTPResponse> {
   if (resp.errorKind !== 'canceled') {
     addHistory({
       id: uid(),
-      requestSnapshot: structuredClone(tab.request),
+      requestSnapshot: cloneDeep(tab.request),
       responseSummary: {
         statusCode: resp.statusCode,
         durationMs: resp.durationMs,

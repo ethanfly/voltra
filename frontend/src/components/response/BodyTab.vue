@@ -28,7 +28,9 @@ const rendered = computed(() => text.value.slice(0, RENDER_CAP))
 
 type Mode = 'pretty' | 'raw' | 'preview'
 const mode = ref<Mode>('raw')
-/** 新响应到达时按内容重置默认视图 */
+const search = ref('')
+const jsonPath = ref('')
+/** 新响应到达时按内容重置默认视图（immediate：ref 必须先于 watch 声明，否则 TDZ 抛错） */
 watch(
   () => props.response,
   () => {
@@ -57,7 +59,6 @@ function disablePretty(v: string) {
 }
 
 // ---------- 搜索（Raw 视图，忽略大小写高亮） ----------
-const search = ref('')
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -98,7 +99,6 @@ function countMatches(body: string, q: string): number {
 const wrap = ref(true)
 
 // ---------- JSONPath ----------
-const jsonPath = ref('')
 const jsonPathResult = computed<string | null>(() => {
   if (!isJson.value || capPretty.value || !jsonPath.value.trim()) return null
   try {

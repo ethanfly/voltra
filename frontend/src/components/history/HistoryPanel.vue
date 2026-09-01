@@ -10,7 +10,7 @@ import { historyStore, grouped, clearHistory } from '../../stores/history'
 import { openRequest } from '../../stores/tabs'
 import { currentProject, findNode, addRequest } from '../../stores/workspace'
 import { settings } from '../../stores/settings'
-import { uid } from '../../types/models'
+import { uid, cloneDeep } from '../../types/models'
 import type { HistoryEntry, ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 
@@ -52,7 +52,7 @@ function doSaveAs(name: string, targetId: ID) {
     if (n && n.kind !== 'request') target = n
   }
   if (!target) return
-  const clone = structuredClone(e.requestSnapshot)
+  const clone = cloneDeep(e.requestSnapshot)
   clone.id = uid()
   clone.name = name
   addRequest(target, clone)
@@ -119,7 +119,7 @@ function fmtTime(ts: number): string {
       <div class="hp-foot">
         <span>{{ L.history.limitHint }} {{ settings.historyLimit }}</span>
         <button class="hp-clear" :title="L.history.clear" @click="confirmClear = true">
-          <Trash2 :size="11" /> {{ L.history.clear }}
+          <Trash2 :size="13" /> {{ L.history.clear }}
         </button>
       </div>
     </template>

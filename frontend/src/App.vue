@@ -16,13 +16,16 @@ import WsComposer from './components/ws/WsComposer.vue'
 import CodeGenDrawer from './components/codegen/CodeGenDrawer.vue'
 import { startWsBridge } from './lib/ws-bridge'
 import { bootstrap } from './lib/persist'
+import { initZoomKeys } from './lib/zoom'
 import { sendRequest } from './lib/send'
+import EnvPage from './components/env/EnvPage.vue'
 import { tabs, activeTab, responses } from './stores/tabs'
-import { uiState, setSplitRatio } from './stores/ui-state'
+import { uiState, setSplitRatio, varPage } from './stores/ui-state'
 import type { HTTPResponseModel } from './types/models'
 
 onMounted(() => {
   startWsBridge()
+  initZoomKeys()
   void bootstrap()
 })
 
@@ -61,7 +64,9 @@ function onSplit(delta: number) {
       <div class="main-col">
         <TabStrip />
         <div ref="editorArea" class="editor-area">
-          <template v-if="activeTab && activeTab.request.protocol === 'http'">
+          <!-- 变量/环境编辑整页（侧栏按钮打开）；点任意请求标签即 closeVarPage 回到请求视图 -->
+          <EnvPage v-if="varPage.open" />
+          <template v-else-if="activeTab && activeTab.request.protocol === 'http'">
             <div class="pane req-pane" :style="{ height: uiState.splitRatio * 100 + '%' }">
               <RequestEditor :tab="activeTab" />
             </div>

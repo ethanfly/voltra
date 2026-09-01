@@ -26,6 +26,22 @@ export function closeCodegen() {
   codegenOpen.value = false
 }
 
+// ---------- 变量/环境编辑整页（主编辑区，替代侧栏里挤占的三级变量表） ----------
+// 页面始终显示"当前环境"（env.currentEnvId，标题栏切换）的变量 + 项目级 + 全局变量；
+// 这里只记开关，重启后可还原。打开整页时激活的请求标签保持选中，点标签即回到请求视图
+export const varPage = reactive({ open: false })
+
+export function openVarPage() {
+  if (varPage.open) return
+  varPage.open = true
+  scheduleSave('ui')
+}
+export function closeVarPage() {
+  if (!varPage.open) return
+  varPage.open = false
+  scheduleSave('ui')
+}
+
 export const SIDEBAR_MIN = 240
 export const SIDEBAR_MAX = 480
 

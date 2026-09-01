@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // 活动栏（48px）：集合 / 历史 / 环境 / 设置
 import { computed } from 'vue'
-import { FolderTree, History, Layers, Settings } from 'lucide-vue-next'
-import { activePanel, type PanelKind } from '../../stores/ui-state'
+import { FolderTree, History, Layers, Settings, PanelLeft } from 'lucide-vue-next'
+import { activePanel, sidebarCollapsed, type PanelKind } from '../../stores/ui-state'
 import { historyStore } from '../../stores/history'
 import { t } from '../../locales/zh-CN'
 
@@ -16,6 +16,12 @@ const items: { kind: PanelKind; icon: typeof FolderTree; label: string }[] = [
 ]
 
 const badge = computed(() => historyStore.entries.length)
+
+// 选中面板时若侧栏已折叠则展开（VS Code 同款交互，避免"折叠后找不回来"）
+function selectPanel(kind: PanelKind) {
+  activePanel.value = kind
+  sidebarCollapsed.value = false
+}
 </script>
 
 <template>
@@ -25,12 +31,21 @@ const badge = computed(() => historyStore.entries.length)
       :key="item.kind"
       :class="['ab-btn', { active: activePanel === item.kind }]"
       :title="item.label"
-      @click="activePanel = item.kind"
+      @click="selectPanel(item.kind)"
     >
       <component :is="item.icon" :size="19" />
       <span v-if="item.kind === 'history' && badge > 0" class="ab-badge">{{
         badge > 99 ? '99+' : badge
       }}</span>
+    </button>
+    <div class="ab-spacer"></div>
+    <button
+      class="ab-btn"
+      :class="{ active: sidebarCollapsed }"
+      :title="sidebarCollapsed ? L.common.expand : L.common.collapse"
+      @click="sidebarCollapsed = !sidebarCollapsed"
+    >
+      <PanelLeft :size="19" />
     </button>
   </nav>
 </template>
@@ -68,6 +83,9 @@ const badge = computed(() => historyStore.entries.length)
 .ab-btn.active {
   color: var(--brand);
   background: var(--brand-weak);
+}
+.ab-spacer {
+  flex: 1;
 }
 .ab-badge {
   position: absolute;

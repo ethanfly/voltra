@@ -102,13 +102,13 @@ function applyCurl(req: Request) {
       />
     </div>
     <button class="icon-btn" :title="L.request.pasteCurl" @click="showCurl = true">
-      <FileTerminal :size="14" />
+      <FileTerminal :size="15" />
     </button>
     <button class="icon-btn" :title="L.request.generateCode" @click="openCodegen(request.id)">
-      <Code :size="14" />
+      <Code :size="15" />
     </button>
     <button class="icon-btn" :title="L.request.save" @click="emit('save')">
-      <Save :size="14" />
+      <Save :size="15" />
     </button>
     <button v-if="sending" class="btn btn-danger ub-send" @click="emit('cancel')">
       <X :size="13" /> {{ L.request.cancel }}

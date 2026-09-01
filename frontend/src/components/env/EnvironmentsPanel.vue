@@ -2,10 +2,9 @@
 // 环境面板：环境选择/新建/重命名/删除 + 三级变量表（环境级 / 项目级 / 全局）
 // 变量行在 VarTable 中原地编辑；敏感值 password 打码、可点眼切换
 import { computed, ref } from 'vue'
-import { Plus, Trash2, Pencil, Upload, Download } from 'lucide-vue-next'
+import { Plus, Trash2, Pencil, Upload, Download, PanelRightOpen } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
-import VarTable from './VarTable.vue'
 import {
   env,
   currentEnv,
@@ -14,6 +13,7 @@ import {
   removeEnvFromProject,
 } from '../../stores/env'
 import { currentProject } from '../../stores/workspace'
+import { openVarPage } from '../../stores/ui-state'
 import { StorageService } from '../../api/backend'
 import { parsePostmanEnvironment } from '../../lib/postman'
 import { exportPostmanEnvironments } from '../../lib/postman-export'
@@ -27,9 +27,6 @@ function commit() {
   const pr = p.value
   if (pr) pr.updatedAt = Date.now()
   scheduleSave('projects')
-}
-function commitGlobal() {
-  scheduleSave('env')
 }
 
 function onAddEnv() {
@@ -130,19 +127,19 @@ async function onExportEnv() {
           {{ currentEnv?.name ?? L.env.noEnv }}
         </button>
         <button v-if="currentEnv" class="ep-act" :title="L.common.rename" @dblclick="startRename">
-          <Pencil :size="12" />
+          <Pencil :size="14" />
         </button>
         <button v-if="currentEnv" class="ep-act" :title="L.common.delete" @click="onRemoveEnv">
-          <Trash2 :size="12" />
+          <Trash2 :size="14" />
         </button>
         <button class="ep-act" :title="L.dialog.envNew" @click="onAddEnv">
-          <Plus :size="12" />
+          <Plus :size="14" />
         </button>
         <button class="ep-act" :title="L.env.importEnv" @click="onImportEnv">
-          <Upload :size="12" />
+          <Upload :size="14" />
         </button>
         <button class="ep-act" :title="L.env.exportEnv" @click="onExportEnv">
-          <Download :size="12" />
+          <Download :size="14" />
         </button>
       </div>
 
@@ -154,25 +151,17 @@ async function onExportEnv() {
         </select>
       </div>
 
-      <!-- 环境级变量表 -->
-      <div v-if="currentEnv" class="ep-vars">
-        <div class="ep-vars-head">
-          <span>{{ L.env.vars }}</span>
-        </div>
-        <VarTable :vars="currentEnv.variables" :on-commit="commit" />
+      <!-- 变量编辑：侧栏 240–480px 塞不下 键/初始值/当前值/启用 四列表格，
+           整页在编辑区打开（用户实测反馈"还是很挤"） -->
+      <div class="ep-page">
+        <button class="ep-openpage" @click="openVarPage()">
+          <PanelRightOpen :size="15" />
+          <span>{{ L.env.editInPage }}</span>
+        </button>
+        <p class="ep-page-hint">
+          {{ L.env.vars }} · {{ L.env.projectVars }}（{{ p.variables.length }}） · {{ L.env.globalVars }}（{{ env.globalVars.length }}）
+        </p>
       </div>
-
-      <!-- 项目级变量（跨环境，存在 Project.variables） -->
-      <details class="ep-sec">
-        <summary>{{ L.env.projectVars }}（{{ p.variables.length }}）</summary>
-        <VarTable :vars="p.variables" :on-commit="commit" />
-      </details>
-
-      <!-- 全局变量（environments.json，跨项目） -->
-      <details class="ep-sec">
-        <summary>{{ L.env.globalVars }}（{{ env.globalVars.length }}）</summary>
-        <VarTable :vars="env.globalVars" :on-commit="commitGlobal" />
-      </details>
 
       <ConfirmDialog
         v-if="envError"
@@ -219,12 +208,12 @@ async function onExportEnv() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -240,34 +229,35 @@ async function onExportEnv() {
   height: 26px;
   font-size: 12px;
 }
-.ep-vars {
-  display: flex;
-  flex-direction: column;
+/* 变量编辑入口：侧栏只留导航，表格移入整页 */
+.ep-page {
   border-top: 1px solid var(--border);
-  padding-top: 8px;
+  padding: 10px 8px;
 }
-.ep-vars-head {
+.ep-openpage {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px 6px;
-  font-size: 11px;
+  justify-content: center;
+  gap: 7px;
+  height: 34px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  color: var(--brand);
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-dim);
-}
-.ep-sec {
-  border-top: 1px solid var(--border);
-  padding: 6px 10px 2px;
-}
-.ep-sec summary {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-dim);
   cursor: pointer;
-  padding: 2px 0 6px;
-  user-select: none;
+  transition: all var(--ease);
 }
-.ep-sec summary:hover {
-  color: var(--text);
+.ep-openpage:hover {
+  background: var(--brand-weak);
+  border-color: var(--brand);
+}
+.ep-page-hint {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.5;
 }
 </style>

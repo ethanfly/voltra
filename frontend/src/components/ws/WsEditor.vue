@@ -12,7 +12,7 @@ import { mergedHeaders } from '../../lib/send'
 import { flushNow, scheduleSave } from '../../lib/persist'
 import { missingIn, varTitle } from '../../lib/var-ui'
 import { currentProject, findNode, addRequest } from '../../stores/workspace'
-import { uid } from '../../types/models'
+import { uid, cloneDeep } from '../../types/models'
 import type { ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 import type { LiveTab } from '../../stores/tabs'
@@ -119,7 +119,7 @@ function doSaveTo(name: string, targetId: ID) {
     if (n && n.kind !== 'request') target = n
   }
   if (!target) return
-  const clone = structuredClone(props.tab.request)
+  const clone = cloneDeep(props.tab.request)
   clone.id = uid()
   clone.name = name
   const node = addRequest(target, clone)

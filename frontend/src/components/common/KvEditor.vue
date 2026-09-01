@@ -3,7 +3,7 @@
 // 直接原地修改传入的 reactive 数组（行对象本身即响应式），不 emit 副本
 // 值中含 {{var}} 的行加 .kv-var 类（变量色）；含未定义变量加 .kv-var-bad（红色波浪线，ENV-4）
 // 悬浮提示（ENV-5）：title 列出 名称=值（secret 打码）/ 未定义标注
-import { Trash2 } from 'lucide-vue-next'
+import { Plus, Trash2 } from 'lucide-vue-next'
 import type { KVPair } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 import { missingIn, varTitle } from '../../lib/var-ui'
@@ -69,11 +69,11 @@ function removeRow(idx: number) {
         :placeholder="L.request.kv.description"
       />
       <button class="icon-btn kve-del" :title="L.common.delete" @click="removeRow(idx)">
-        <Trash2 :size="12" />
+        <Trash2 :size="14" />
       </button>
     </div>
     <button class="btn kve-add" @click="addRow">
-      {{ L.request.kv.addRow }}
+      <Plus :size="13" /> {{ L.request.kv.addRow }}
     </button>
   </div>
 </template>
@@ -100,11 +100,11 @@ function removeRow(idx: number) {
   flex: 1;
 }
 .kve-sp {
-  width: 18px;
+  width: 24px;
   flex-shrink: 0;
 }
 .kve-row {
-  height: var(--row-h);
+  height: 32px;
 }
 .kve-cb {
   width: 13px;
@@ -117,23 +117,24 @@ function removeRow(idx: number) {
   width: 13px;
   height: 13px;
 }
+/* 未聚焦也要有明确的输入框轮廓（transparent 底+边框在深色下隐形，实测反馈） */
 .kve-in {
   flex: 1;
   min-width: 0;
-  height: 24px;
+  height: 26px;
   padding: 0 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: transparent;
+  background: var(--bg-elev);
   color: var(--text);
   font-size: 12px;
   font-family: var(--mono);
   outline: none;
-  transition: border-color var(--ease), background var(--ease);
+  transition: border-color var(--ease), background var(--ease), box-shadow var(--ease);
 }
 .kve-in:focus {
   border-color: var(--brand);
-  background: var(--bg-elev);
+  box-shadow: 0 0 0 2px var(--brand-weak);
 }
 .kve-row.disabled .kve-in,
 .kve-row.disabled .kve-del {
@@ -142,10 +143,10 @@ function removeRow(idx: number) {
 }
 .kve-in.kv-var {
   background: var(--brand-weak);
-  border-color: transparent;
 }
 .kve-in.kv-var:focus {
   border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-weak);
 }
 .kve-in.kv-var-bad {
   color: var(--error);
@@ -153,12 +154,12 @@ function removeRow(idx: number) {
 }
 .kve-in.kv-var-bad:focus {
   border-color: var(--error);
-  background: var(--bg-elev);
+  box-shadow: 0 0 0 2px var(--error-weak);
 }
 .kve-del {
   opacity: 0;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
 }
 .kve-row:hover .kve-del {
@@ -167,8 +168,11 @@ function removeRow(idx: number) {
 .kve-add {
   align-self: flex-start;
   margin-top: 2px;
-  font-size: 11px;
-  height: 24px;
-  padding: 0 10px;
+  font-size: 12px;
+  height: 26px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 </style>

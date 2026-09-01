@@ -293,15 +293,15 @@ async function onExportProject() {
     <template v-else>
       <!-- 搜索框 + 导入/导出 -->
       <div class="cp-search">
-        <Search :size="12" />
+        <Search :size="14" />
         <input v-model="query" class="cp-search-input" :placeholder="L.tree.searchPlaceholder" />
         <button class="cp-act" :title="L.tree.importPostman" @click="onImport">
-          <Upload :size="12" />
+          <Upload :size="14" />
         </button>
         <Dropdown>
           <template #trigger>
             <button class="cp-act" :title="L.common.download">
-              <Download :size="12" />
+              <Download :size="14" />
             </button>
           </template>
           <template #default="{ close }">
@@ -396,7 +396,7 @@ async function onExportProject() {
               :title="L.common.delete"
               @click="pendingDelete = { id: c.id, name: c.name, isCollection: true }"
             >
-              <Trash2 :size="11" />
+              <Trash2 :size="13" />
             </button>
           </div>
           <div v-if="isExpanded(c.id)">
@@ -462,11 +462,11 @@ async function onExportProject() {
   gap: 6px;
   margin: 0 8px 8px;
   padding: 0 8px;
-  height: 26px;
+  height: 30px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-sunken);
-  color: var(--text-faint);
+  background: var(--bg-elev);
+  color: var(--text-dim);
   flex-shrink: 0;
 }
 .cp-search-input {
@@ -481,12 +481,12 @@ async function onExportProject() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -623,10 +623,10 @@ async function onExportProject() {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;

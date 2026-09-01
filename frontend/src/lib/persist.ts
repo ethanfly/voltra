@@ -19,7 +19,7 @@ import { workspace, findRequest } from '../stores/workspace'
 import { env } from '../stores/env'
 import { historyStore } from '../stores/history'
 import { settings, applyTheme, initThemeWatcher } from '../stores/settings'
-import { uiState, SIDEBAR_MIN, SIDEBAR_MAX } from '../stores/ui-state'
+import { uiState, SIDEBAR_MIN, SIDEBAR_MAX, varPage } from '../stores/ui-state'
 import { tabs } from '../stores/tabs'
 
 /** 保存状态（状态栏展示） */
@@ -147,6 +147,7 @@ export async function bootstrap(): Promise<void> {
       }
       if (Array.isArray(st.expandedNodeIds)) uiState.expandedNodeIds = st.expandedNodeIds
       if (Array.isArray(st.wsSnippets)) uiState.wsSnippets = st.wsSnippets
+      varPage.open = !!st.varPageOpen
     }
   } catch {
     /* 保持默认 */
@@ -215,6 +216,7 @@ export function collectUIState(): UIState {
     splitRatio: uiState.splitRatio,
     expandedNodeIds: uiState.expandedNodeIds,
     wsSnippets: uiState.wsSnippets,
+    varPageOpen: varPage.open,
   }
 }
 

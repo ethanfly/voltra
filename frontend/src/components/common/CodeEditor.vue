@@ -104,7 +104,7 @@ const baseTheme = EditorView.theme({
     textDecoration: 'underline wavy var(--error)',
   },
   '&.cm-focused': { outline: 'none' },
-  '&.cm-focused .cm-cursor': { borderLeftColor: 'var(--brand)' },
+  // 光标颜色/宽度在 <style scoped> 的 :deep(.cm-cursor) 用 !important 强制（主题对象写法未生效）
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': {
     backgroundColor: 'var(--brand-weak)',
   },
@@ -255,6 +255,14 @@ defineExpose({ format, getView: () => view })
 }
 .ce :deep(.cm-editor) {
   height: 100%;
+}
+/* 深色下光标必须显式指定：CM6 基类是 border-left:1.2px solid black（浅色 #ddd 只对
+   .dark 类生效，而我们用 html 的 data-theme、从不给编辑器加 .dark 类）。黑色光标在深色
+   背景上几乎不可见（用户实测反馈），主题对象里的 borderLeftColor 又未生效——用
+   :deep + !important 强制品牌色 + 加宽到 2px，保证明暗两套主题都清晰 */
+.ce :deep(.cm-cursor) {
+  border-left-color: var(--brand) !important;
+  border-left-width: 2px !important;
 }
 .ce-ph {
   position: absolute;

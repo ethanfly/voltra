@@ -151,6 +151,7 @@ export interface UIState {
   splitRatio: number // 请求区 / 响应区 分栏比例 0–1
   expandedNodeIds: ID[]
   wsSnippets: WsSnippet[]
+  varPageOpen?: boolean // 变量/环境编辑整页是否打开（可选，旧档无此字段）
 }
 
 // ---------- 工厂函数 ----------
@@ -245,6 +246,7 @@ export function defaultUIState(): UIState {
     splitRatio: 0.5,
     expandedNodeIds: [],
     wsSnippets: [],
+    varPageOpen: false,
   }
 }
 
@@ -264,4 +266,13 @@ export interface WSStatusEvent {
   connId: string
   status: string // connected | reconnecting | closed | error
   detail?: string
+}
+
+/**
+ * 模型数据深拷贝（请求快照 / 历史还原 / 另存为新节点用）。
+ * 不能用 structuredClone：它对 Vue reactive 代理会抛 DataCloneError
+ * （模型本身是纯 JSON 结构——落盘即 JSON.stringify——JSON 往返最稳）
+ */
+export function cloneDeep<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v))
 }

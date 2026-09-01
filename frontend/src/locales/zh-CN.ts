@@ -57,6 +57,13 @@ export const zhCN = {
     settings: '设置',
   },
 
+  window: {
+    minimise: '最小化',
+    maximise: '最大化',
+    restore: '还原窗口',
+    close: '关闭窗口',
+  },
+
   activity: {
     collections: '接口集合',
     history: '历史记录',
@@ -280,6 +287,7 @@ export const zhCN = {
     globalVars: '全局变量',
     projectVars: '项目级变量',
     vars: '变量',
+    editInPage: '在页面中编辑变量',
     addVar: '添加变量',
     key: '键',
     initial: '初始值',

@@ -44,30 +44,32 @@ function removeRow(v: Variable) {
           <td><input v-model="v.key" class="input cell" @change="commit" /></td>
           <td><input v-model="v.initialValue" class="input cell" @change="commit" /></td>
           <td>
-            <input
-              v-model="v.currentValue"
-              class="input cell"
-              :type="v.secret ? 'password' : 'text'"
-              @change="commit"
-            />
-            <button class="vt-eye" :title="L.env.secret" @click="v.secret = !v.secret; commit()">
-              <EyeOff v-if="v.secret" :size="11" />
-              <Eye v-else :size="11" />
-            </button>
+            <div class="vt-cur">
+              <input
+                v-model="v.currentValue"
+                class="input cell"
+                :type="v.secret ? 'password' : 'text'"
+                @change="commit"
+              />
+              <button class="vt-eye" :title="L.env.secret" @click="v.secret = !v.secret; commit()">
+                <EyeOff v-if="v.secret" :size="13" />
+                <Eye v-else :size="13" />
+              </button>
+            </div>
           </td>
           <td class="vt-td-act">
             <label class="vt-check">
               <input v-model="v.enabled" type="checkbox" @change="commit" />
             </label>
             <button class="vt-act" :title="L.common.delete" @click="removeRow(v)">
-              <Trash2 :size="12" />
+              <Trash2 :size="14" />
             </button>
           </td>
         </tr>
       </tbody>
     </table>
     <button class="btn vt-add" @click="addRow">
-      <Plus :size="12" /> {{ L.env.addVar }}
+      <Plus :size="13" /> {{ L.env.addVar }}
     </button>
   </div>
 </template>
@@ -85,58 +87,83 @@ function removeRow(v: Variable) {
 .vt-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 12px;
+}
+/* 固定列宽比例，避免 auto 布局下长内容把邻列挤扁 */
+.vt-table th:nth-child(1) {
+  width: 28%;
+}
+.vt-table th:nth-child(2) {
+  width: 26%;
+}
+.vt-table th:nth-child(3) {
+  width: auto;
 }
 .vt-table th {
   text-align: left;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-faint);
-  padding: 3px 4px;
+  color: var(--text-dim);
+  padding: 4px 6px;
   border-bottom: 1px solid var(--border);
 }
 .vt-table td {
-  padding: 3px 4px;
+  padding: 4px 6px;
   vertical-align: middle;
 }
 .cell {
   width: 100%;
-  height: 24px;
+  height: 26px;
   font-size: 12px;
+  min-width: 0;
+}
+/* 当前值输入框 + 眼睛同行（原来 button 被 input 的 100% 宽挤到下一行） */
+.vt-cur {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.vt-cur .cell {
+  flex: 1;
 }
 .vt-td-act {
   white-space: nowrap;
-  width: 56px;
+  width: 64px;
 }
 .vt-th-act {
-  width: 56px;
+  width: 64px;
 }
 .vt-check {
   display: inline-flex;
   align-items: center;
 }
 .vt-eye {
-  display: flex;
-  align-items: center;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   border: none;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
-  padding: 2px;
 }
 .vt-eye:hover {
+  background: var(--bg-hover);
   color: var(--text);
 }
 .vt-act {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
 }
 .vt-act:hover {
@@ -146,8 +173,11 @@ function removeRow(v: Variable) {
 .vt-add {
   align-self: flex-start;
   margin: 6px 0 2px;
-  font-size: 11px;
-  height: 24px;
-  padding: 0 10px;
+  font-size: 12px;
+  height: 26px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 </style>

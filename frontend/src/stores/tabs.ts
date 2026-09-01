@@ -6,6 +6,7 @@ import { uid, newRequest } from '../types/models'
 import { scheduleSave } from '../lib/persist'
 import { WSService } from '../api/backend'
 import { findRequest } from './workspace'
+import { closeVarPage } from './ui-state'
 
 export interface LiveTab {
   tabId: ID
@@ -51,6 +52,7 @@ export function openRequest(request: Request, opts?: { fromHistory?: boolean }):
     const existing = tabs.tabs.find((t) => t.request.id === request.id)
     if (existing) {
       tabs.activeTabId = existing.tabId
+      closeVarPage()
       return existing
     }
   }
@@ -63,6 +65,7 @@ export function openRequest(request: Request, opts?: { fromHistory?: boolean }):
   }
   tabs.tabs.push(tab)
   tabs.activeTabId = tab.tabId
+  closeVarPage()
   scheduleSave('ui')
   return tab
 }
@@ -79,6 +82,7 @@ export function newEmptyRequest(protocol: 'http' | 'ws' = 'http'): LiveTab {
 export function setActiveTab(tabId: ID) {
   if (tabs.tabs.some((t) => t.tabId === tabId)) {
     tabs.activeTabId = tabId
+    closeVarPage() // 点任意请求标签即回到请求视图（变量整页打开时）
     scheduleSave('ui')
   }
 }

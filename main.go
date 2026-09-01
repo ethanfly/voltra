@@ -41,6 +41,8 @@ func main() {
 	// StorageService 需要 app 实例才能弹出原生文件对话框（PickFile/SaveFile）
 	storageService.BindApp(app)
 
+	// Frameless：无边框窗口，关闭/最小化/最大化由前端 TitleBar 自绘按钮实现
+	//（macOS 保留圆角与边缘缩放，Windows 由前端 --wails-non-client-region 提供原生命中区）
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
 		Title:     "Voltra",
@@ -48,6 +50,7 @@ func main() {
 		Height:    840,
 		MinWidth:  960,
 		MinHeight: 600,
+		Frameless: true,
 	})
 
 	log.Println("Voltra 启动中...")

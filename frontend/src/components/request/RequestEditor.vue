@@ -2,7 +2,7 @@
 // 请求编辑器容器：UrlBar + 六个编辑页（Params/Headers/Body/Auth/Scripts/Settings）
 // 深监听 request 变化 → dirty 圆点 + 已归属树的请求自动 debounce 落盘
 // Cmd+S（window capture，抢在 CM6 之前）：已归属 → 立即落盘；未归属 → SaveToDialog
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import UrlBar from './UrlBar.vue'
 import ParamsTab from './ParamsTab.vue'
 import HeadersTab from './HeadersTab.vue'
@@ -15,7 +15,7 @@ import { tabs, markDirty, markSaved, responses } from '../../stores/tabs'
 import { currentProject, findNode, addRequest } from '../../stores/workspace'
 import { scheduleSave, flushNow } from '../../lib/persist'
 import { sendRequest, cancelRequest, isSending } from '../../lib/send'
-import { uid } from '../../types/models'
+import { uid, cloneDeep } from '../../types/models'
 import type { LiveTab } from '../../stores/tabs'
 import type { ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
@@ -25,7 +25,9 @@ const props = defineProps<{ tab: LiveTab }>()
 const L = computed(() => t())
 
 // 每个 LiveTab 记住自己停留在哪个编辑页（不持久化）
-const editorTabByTabId = new Map<ID, string>()
+// 必须 reactive(new Map())：普通 Map 的 get/set 不被 Vue 追踪，
+// computed setter 写入后不会触发重渲染——点 tab 看似没反应（实测 bug）
+const editorTabByTabId = reactive(new Map<ID, string>())
 const activeEditTab = computed<string>({
   get: () => editorTabByTabId.get(props.tab.tabId) ?? 'params',
   set: (v) => editorTabByTabId.set(props.tab.tabId, v),
@@ -66,6 +68,20 @@ async function onSend() {
     responses[props.tab.tabId] = resp
   } catch (e) {
     console.error('send failed', e)
+    // 异常也进响应区（错误卡），不能只打 console——否则响应区永远空着，用户以为没发送
+    responses[props.tab.tabId] = {
+      statusCode: 0,
+      status: '',
+      headers: [],
+      body: '',
+      bodyEncoding: 'utf8',
+      contentType: '',
+      sizeBytes: 0,
+      durationMs: 0,
+      error: e instanceof Error ? e.message : String(e),
+      errorKind: 'other',
+      timings: { dnsMs: 0, tcpMs: 0, tlsMs: 0, ttfbMs: 0, downloadMs: 0 },
+    }
   }
 }
 function onCancel() {
@@ -95,7 +111,7 @@ function doSaveTo(name: string, targetId: ID) {
   }
   if (!target) return
   // 克隆为新树节点（新 id），把当前标签切换到树节点（后续编辑直接落盘）
-  const clone = structuredClone(props.tab.request)
+  const clone = cloneDeep(props.tab.request)
   clone.id = uid()
   clone.name = name
   const node = addRequest(target, clone)

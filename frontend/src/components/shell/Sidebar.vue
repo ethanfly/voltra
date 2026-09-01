@@ -56,7 +56,7 @@ function doClearHistory() {
           :title="L.dialog.collectionNew"
           @click="onNewCollection"
         >
-          <Plus :size="14" />
+          <Plus :size="15" />
         </button>
         <button
           v-else-if="activePanel === 'environments'"
@@ -64,7 +64,7 @@ function doClearHistory() {
           :title="L.dialog.envNew"
           @click="onNewEnv"
         >
-          <Plus :size="14" />
+          <Plus :size="15" />
         </button>
         <button
           v-else-if="activePanel === 'history' && historyStore.entries.length > 0"
@@ -72,10 +72,10 @@ function doClearHistory() {
           :title="L.history.clear"
           @click="confirmClearHistory = true"
         >
-          <Trash2 :size="14" />
+          <Trash2 :size="15" />
         </button>
         <button class="sb-act" :title="L.common.collapse" @click="sidebarCollapsed = true">
-          <PanelLeftClose :size="14" />
+          <PanelLeftClose :size="15" />
         </button>
       </div>
       <div class="sb-body">
@@ -88,7 +88,7 @@ function doClearHistory() {
     <Splitter axis="x" @resize="(d) => setSidebarWidth(uiState.sidebarWidth + d)" />
   </div>
   <button v-else class="expand-btn" :title="L.common.expand" @click="sidebarCollapsed = false">
-    <PanelLeft :size="14" />
+    <PanelLeft :size="15" />
   </button>
 </template>
 
@@ -123,16 +123,17 @@ function doClearHistory() {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* faint 色 + 22px 热区太小、难以察觉（实测反馈）——dim 色 + 26px */
 .sb-act {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
 }
 .sb-act:hover {
@@ -151,7 +152,8 @@ function doClearHistory() {
   border: none;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
-  color: var(--text-faint);
+  /* 折叠后这是唯一的细条入口，图标要足够醒目 */
+  color: var(--text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;

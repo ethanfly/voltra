@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // 通用下拉：#trigger 插槽 + 默认内容插槽，floating-ui 定位，点击外部 / Esc 关闭
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useFloating, autoUpdate, offset, flip, shift } from '@floating-ui/vue'
 
 defineProps<{ align?: 'start' | 'end' }>()
 
 const open = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
 const refEl = ref<HTMLElement | null>(null)
 const floatEl = ref<HTMLElement | null>(null)
 
@@ -26,12 +27,26 @@ function close() {
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') close()
+  if (e.key === 'Escape' && open.value) close()
 }
+
+// 点击组件外部关闭（capture 阶段，先于目标自身处理；菜单未聚焦时 Esc 也能关）
+function onDocMousedown(e: MouseEvent) {
+  if (!open.value) return
+  if (rootEl.value && !rootEl.value.contains(e.target as Node)) close()
+}
+onMounted(() => {
+  window.addEventListener('mousedown', onDocMousedown, true)
+  window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('mousedown', onDocMousedown, true)
+  window.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>
-  <div class="dropdown">
+  <div ref="rootEl" class="dropdown">
     <div ref="refEl" @click="toggle">
       <slot name="trigger" :open="open"></slot>
     </div>
@@ -41,7 +56,6 @@ function onKeydown(e: KeyboardEvent) {
       class="dropdown-menu"
       :style="floatingStyles"
       :data-placement="placement"
-      @keydown="onKeydown"
     >
       <slot :close="close"></slot>
     </div>
@@ -52,6 +66,8 @@ function onKeydown(e: KeyboardEvent) {
 .dropdown {
   position: relative;
   display: inline-flex;
+  /* frameless 顶栏是拖拽区且拖拽属性会继承——下拉整体显式排除 */
+  --wails-draggable: no-drag;
 }
 .dropdown-menu {
   position: absolute;
