@@ -18,12 +18,10 @@ describe('parseCurl', () => {
     expect(req.method).toBe('POST')
     expect(req.url).toBe('https://api.example.com/users')
     expect(req.params).toEqual([{ key: 'page', value: '1', enabled: true }])
-    expect(req.headers.map((h) => [h.key, h.value])).toEqual([
-      ['Content-Type', 'application/json'],
-      ['Authorization', 'Bearer tok123'],
-    ])
+    // Authorization: Bearer 已反推为 bearer auth 并从 headers 移除
+    expect(req.headers.map((h) => [h.key, h.value])).toEqual([['Content-Type', 'application/json']])
     expect(req.body).toEqual({ type: 'raw', raw: '{"name":"voltra"}', rawLang: 'json' })
-    expect(req.auth).toEqual({ type: 'none' })
+    expect(req.auth).toEqual({ type: 'bearer', bearer: { token: 'tok123' } })
     expect(r.warnings!.length).toBe(1)
     expect(r.warnings![0]).toContain('--compressed')
     expect(req.name).toBe('users')
@@ -123,5 +121,44 @@ describe('parseCurl', () => {
     expect(parseCurl('').ok).toBe(false)
     expect(parseCurl('curl').ok).toBe(false)
     expect(parseCurl('curl --header').ok).toBe(false)
+  })
+})
+
+describe('Authorization 反推（阶段17）', () => {
+  it('Bearer 头 → bearer auth，头行移除', () => {
+    const r = parseCurl("curl -H 'Authorization: Bearer abc.def' https://x.com")
+    expect(r.ok).toBe(true)
+    expect(r.request!.auth).toEqual({ type: 'bearer', bearer: { token: 'abc.def' } })
+    expect(r.request!.headers.find((h) => h.key.toLowerCase() === 'authorization')).toBeUndefined()
+  })
+
+  it('Basic 头 → basic auth（UTF-8 安全解码中文凭证），头行移除', () => {
+    const b64 = Buffer.from(new TextEncoder().encode('用户:密码')).toString('base64')
+    const r = parseCurl(`curl -H 'Authorization: Basic ${b64}' https://x.com`)
+    expect(r.ok).toBe(true)
+    expect(r.request!.auth).toEqual({ type: 'basic', basic: { username: '用户', password: '密码' } })
+    expect(r.request!.headers.find((h) => h.key.toLowerCase() === 'authorization')).toBeUndefined()
+  })
+
+  it('Basic 头解码失败 → 保留原头行 + warning', () => {
+    const r = parseCurl("curl -H 'Authorization: Basic !!!not-base64!!!' https://x.com")
+    expect(r.ok).toBe(true)
+    expect(r.request!.auth).toEqual({ type: 'none' })
+    expect(r.request!.headers).toContainEqual({ key: 'Authorization', value: 'Basic !!!not-base64!!!', enabled: true })
+    expect(r.warnings!.some((w) => w.includes('Basic Authorization'))).toBe(true)
+  })
+
+  it('-u 与 Bearer 头并存 → -u 优先，头行移除', () => {
+    const r = parseCurl("curl -u boss:secret -H 'Authorization: Bearer x' https://x.com")
+    expect(r.ok).toBe(true)
+    expect(r.request!.auth).toEqual({ type: 'basic', basic: { username: 'boss', password: 'secret' } })
+    expect(r.request!.headers.find((h) => h.key.toLowerCase() === 'authorization')).toBeUndefined()
+  })
+
+  it('其他 scheme（Digest）无法反推 → 原样保留', () => {
+    const r = parseCurl("curl -H 'Authorization: Digest realm=\"x\", qop=\"auth\"' https://x.com")
+    expect(r.ok).toBe(true)
+    expect(r.request!.auth).toEqual({ type: 'none' })
+    expect(r.request!.headers).toContainEqual({ key: 'Authorization', value: 'Digest realm="x", qop="auth"', enabled: true })
   })
 })

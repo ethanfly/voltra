@@ -4,13 +4,26 @@
 // ============================================================
 
 // 基础类型直接复用 wails3 生成的绑定（字段名 = Go json tag）
-export type { KVPair, FormField, GraphQLBody, HTTPResponse, DownloadResult, WSConnectOptions } from '../../bindings/voltra/services'
+export type {
+  KVPair,
+  FormField,
+  GraphQLBody,
+  HTTPResponse,
+  DownloadResult,
+  WSConnectOptions,
+  AuthDigest,
+  AuthOAuth1,
+  AuthAWSV4,
+} from '../../bindings/voltra/services'
 import type {
   KVPair,
   FormField,
   GraphQLBody,
   HTTPResponse,
 } from '../../bindings/voltra/services'
+
+/** 应用版本（与 build/config.yml、Go 侧 defaultUserAgent 常量保持一致；升级时三处同改） */
+export const APP_VERSION = '0.2.0'
 
 export type ID = string // uuid
 export type HTTPResponseModel = HTTPResponse
@@ -83,11 +96,44 @@ export interface RequestSettings {
   sendCookies: boolean
 }
 
+export type AuthType =
+  | 'none'
+  | 'inherit'
+  | 'bearer'
+  | 'basic'
+  | 'apikey'
+  | 'jwt'
+  | 'digest'
+  | 'oauth1'
+  | 'oauth2'
+  | 'awsv4'
+
 export interface AuthConfig {
-  type: 'none' | 'inherit' | 'bearer' | 'basic' | 'apikey'
+  type: AuthType
   bearer?: { token: string }
   basic?: { username: string; password: string }
   apikey?: { key: string; value: string; in: 'header' | 'query' }
+  jwt?: { token: string } // Bearer 注入 + 前端 payload 解码展示
+  digest?: { username: string; password: string; realm?: string } // Go 侧 401 挑战-应答
+  oauth1?: {
+    consumerKey: string
+    consumerSecret: string
+    token: string
+    tokenSecret: string
+    signatureMethod: 'HMAC-SHA1' | 'HMAC-SHA256' | 'PLAINTEXT' // 空/缺省 → HMAC-SHA1
+    realm?: string
+  } // Go 侧运行时签名（RFC 5849）
+  oauth2?: {
+    accessToken: string // 非空 → 前端 Bearer 注入；为空且 grant≠manual 时用 [获取新 Token] 拉取
+    grant: 'manual' | 'client_credentials' | 'password'
+    tokenUrl: string
+    clientId: string
+    clientSecret: string
+    username: string // 仅 password grant
+    password: string // 仅 password grant
+    scope: string
+  }
+  awsv4?: { accessKeyId: string; secretAccessKey: string; sessionToken?: string; region: string; service: string } // Go 侧 SigV4
 }
 
 export interface Environment {
@@ -130,6 +176,7 @@ export interface AppSettings {
   defaultScheme: 'http' | 'https'
   historyLimit: number // HIS-5，默认 500
   importLimitMB: number // 导入文件上限（MB），默认 30；越大越可能占用更多内存
+  hideAutoHeaders: boolean // 是否隐藏 Headers 页底部"自动生成的请求头"灰色预览区
 }
 
 export interface WsSnippet {
@@ -164,6 +211,20 @@ export function defaultAuth(): AuthConfig {
   return { type: 'none' }
 }
 
+/**
+ * 新建请求的默认请求头（可编辑的普通行，用户可删改）。
+ * User-Agent 与 Go 侧 defaultUserAgent 常量交叉锁定：两侧测试各自钉死 "Voltra/0.2.0"。
+ * cURL/Postman 导入显式传 headers 经 ...partial 覆盖，不会带上这批默认行。
+ */
+export function defaultHeaders(): KVPair[] {
+  return [
+    { key: 'User-Agent', value: `Voltra/${APP_VERSION}`, enabled: true },
+    { key: 'Accept', value: '*/*', enabled: true },
+    { key: 'Accept-Language', value: 'zh-CN', enabled: true },
+    { key: 'Cache-Control', value: 'no-cache', enabled: true },
+  ]
+}
+
 export function newRequestSettings(defaultTimeoutMs = 30000): RequestSettings {
   return {
     timeoutMs: defaultTimeoutMs,
@@ -183,7 +244,7 @@ export function newRequest(partial?: Partial<Request>): Request {
     method: 'GET',
     url: '',
     params: [],
-    headers: [],
+    headers: defaultHeaders(),
     body: { type: 'none' },
     auth: defaultAuth(),
     settings: newRequestSettings(),
@@ -234,6 +295,7 @@ export function defaultSettings(): AppSettings {
     defaultScheme: 'https',
     historyLimit: 500,
     importLimitMB: 30,
+    hideAutoHeaders: false,
   }
 }
 

@@ -8,6 +8,9 @@ import type {
   FormField,
   HTTPResponse,
   DownloadResult,
+  AuthDigest,
+  AuthOAuth1,
+  AuthAWSV4,
 } from '../types/models'
 import { uid, cloneDeep } from '../types/models'
 import { resolveAll } from '../stores/env'
@@ -82,13 +85,19 @@ function b64Unicode(s: string): string {
   return btoa(String.fromCharCode(...new TextEncoder().encode(s)))
 }
 
-/** auth 注入产生的 header / query 行 */
+/** auth 注入产生的 header / query 行（仅前端注入型；digest/oauth1/awsv4 走 buildGoRequest 的结构化字段，不在此注入） */
 function authInjections(request: Request, resolve: boolean): { headers: KVPair[]; query: KVPair[] } {
   const auth = effectiveAuth(request)
   const headers: KVPair[] = []
   const query: KVPair[] = []
   if (auth.type === 'bearer' && auth.bearer?.token) {
     headers.push({ key: 'Authorization', value: 'Bearer ' + resolveText(request, auth.bearer.token, resolve), enabled: true })
+  } else if (auth.type === 'jwt' && auth.jwt?.token) {
+    // JWT Bearer：与 bearer 同通路，前端仅注入，payload 解码展示在 AuthTab
+    headers.push({ key: 'Authorization', value: 'Bearer ' + resolveText(request, auth.jwt.token, resolve), enabled: true })
+  } else if (auth.type === 'oauth2' && auth.oauth2?.accessToken) {
+    // 手填 / 一键获取到的 token；accessToken 为空则不注入（生成代码保留 {{var}} 原样）
+    headers.push({ key: 'Authorization', value: 'Bearer ' + resolveText(request, auth.oauth2.accessToken, resolve), enabled: true })
   } else if (auth.type === 'basic' && auth.basic) {
     if (!resolve) return { headers, query } // 变量原样：不注入，由生成器用语言惯用法（-u / auth= / SetBasicAuth）
     const raw = resolveText(request, auth.basic.username, true) + ':' + resolveText(request, auth.basic.password, true)
@@ -126,10 +135,44 @@ export function buildGoRequest(request: Request, opts?: { resolve?: boolean }): 
   maxRedirects: number
   insecureSkipTlsVerify: boolean
   sendCookies: boolean
+  digest: AuthDigest | null
+  oauth1: AuthOAuth1 | null
+  awsV4: AuthAWSV4 | null
 } {
   const resolve = opts?.resolve !== false
   const body = request.body
   const inj = authInjections(request, resolve)
+  const auth = effectiveAuth(request) // inherit 链解析结果，结构化字段随之自动生效
+  let digest: AuthDigest | null = null
+  let oauth1: AuthOAuth1 | null = null
+  let awsV4: AuthAWSV4 | null = null
+  if (auth.type === 'digest' && auth.digest) {
+    const d = auth.digest
+    digest = {
+      username: resolveText(request, d.username, resolve),
+      password: resolveText(request, d.password, resolve),
+      realm: d.realm ? resolveText(request, d.realm, resolve) : undefined,
+    }
+  } else if (auth.type === 'oauth1' && auth.oauth1) {
+    const o = auth.oauth1
+    oauth1 = {
+      consumerKey: resolveText(request, o.consumerKey, resolve),
+      consumerSecret: resolveText(request, o.consumerSecret, resolve),
+      token: resolveText(request, o.token, resolve),
+      tokenSecret: resolveText(request, o.tokenSecret, resolve),
+      signatureMethod: o.signatureMethod,
+      realm: o.realm ? resolveText(request, o.realm, resolve) : undefined,
+    }
+  } else if (auth.type === 'awsv4' && auth.awsv4) {
+    const a = auth.awsv4
+    awsV4 = {
+      accessKeyId: resolveText(request, a.accessKeyId, resolve),
+      secretAccessKey: resolveText(request, a.secretAccessKey, resolve),
+      sessionToken: a.sessionToken ? resolveText(request, a.sessionToken, resolve) : undefined,
+      region: resolveText(request, a.region, resolve),
+      service: resolveText(request, a.service, resolve),
+    }
+  }
 
   const headers = mergedHeaders(request)
   if (resolve) {
@@ -190,6 +233,9 @@ export function buildGoRequest(request: Request, opts?: { resolve?: boolean }): 
     maxRedirects: request.settings.maxRedirects,
     insecureSkipTlsVerify: request.settings.insecureSkipTlsVerify,
     sendCookies: request.settings.sendCookies,
+    digest,
+    oauth1,
+    awsV4,
   }
 }
 

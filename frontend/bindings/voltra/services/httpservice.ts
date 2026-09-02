@@ -36,6 +36,14 @@ export function DownloadRequest(req: $models.HTTPRequest): $CancellablePromise<$
 }
 
 /**
+ * FetchOAuth2Token 以 Basic 保护的 form（client 凭证）POST token 端点。
+ * 非 2xx / 非 JSON / 缺 access_token 都返回带响应体片段的中文错误，供前端 toast 展示
+ */
+export function FetchOAuth2Token(t: $models.OAuth2TokenRequest): $CancellablePromise<$models.OAuth2TokenResponse> {
+    return $Call.ByID(1148367705, t);
+}
+
+/**
  * SendRequest 发送请求。
  * ctx 由 Wails 运行时自动注入（生成器会跳过该参数，前端签名不变），
  * 前端调用 CancellablePromise.cancel() 时 ctx 被取消，请求随之中断

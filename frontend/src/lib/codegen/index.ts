@@ -84,5 +84,11 @@ for (const [lang, gens] of Object.entries(all)) {
 
 export function generate(langId: string, clientId: string, ctx: CodegenCtx): string {
   const fn = registry[langId + ':' + clientId]
-  return fn ? fn(ctx) : '// 未实现的生成器: ' + langId + '/' + clientId
+  const code = fn ? fn(ctx) : '// 未实现的生成器: ' + langId + '/' + clientId
+  // Go 侧运行时签名型（digest/oauth1/awsv4）：首行加 NOTE 注释，说明生成代码无法复现签名
+  if (ctx.authNote) {
+    const prefix = langId === 'shell' || langId === 'ruby' ? '#' : '//'
+    return prefix + ' NOTE: ' + ctx.authNote + '\n' + code
+  }
+  return code
 }

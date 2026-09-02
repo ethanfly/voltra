@@ -87,6 +87,49 @@ function authObj(a: Request['auth']): Any {
           { key: 'in', value: a.apikey?.in ?? 'header' },
         ],
       }
+    case 'jwt':
+      return { type: 'jwt', jwt: [{ key: 'token', value: a.jwt?.token ?? '', type: 'string' }] }
+    case 'digest':
+      return {
+        type: 'digest',
+        digest: [
+          { key: 'username', value: a.digest?.username ?? '', type: 'string' },
+          { key: 'password', value: a.digest?.password ?? '', type: 'string' },
+          { key: 'realm', value: a.digest?.realm ?? '', type: 'string' },
+        ],
+      }
+    case 'oauth1':
+      return {
+        type: 'signaturev1',
+        signaturev1: [
+          { key: 'consumerKey', value: a.oauth1?.consumerKey ?? '', type: 'string' },
+          { key: 'consumerSecret', value: a.oauth1?.consumerSecret ?? '', type: 'string' },
+          { key: 'token', value: a.oauth1?.token ?? '', type: 'string' },
+          { key: 'tokenSecret', value: a.oauth1?.tokenSecret ?? '', type: 'string' },
+          { key: 'signatureMethod', value: a.oauth1?.signatureMethod ?? 'HMAC-SHA1', type: 'string' },
+          { key: 'realm', value: a.oauth1?.realm ?? '', type: 'string' },
+        ],
+      }
+    case 'oauth2':
+      return {
+        type: 'oauth2',
+        oauth2: [
+          { key: 'accessToken', value: a.oauth2?.accessToken ?? '', type: 'string' },
+          { key: 'clientId', value: a.oauth2?.clientId ?? '', type: 'string' },
+          { key: 'clientSecret', value: a.oauth2?.clientSecret ?? '', type: 'string' },
+        ],
+      }
+    case 'awsv4':
+      return {
+        type: 'awsv4',
+        awsv4: [
+          { key: 'accessKey', value: a.awsv4?.accessKeyId ?? '', type: 'string' },
+          { key: 'secretKey', value: a.awsv4?.secretAccessKey ?? '', type: 'string' },
+          { key: 'sessionToken', value: a.awsv4?.sessionToken ?? '', type: 'string' },
+          { key: 'region', value: a.awsv4?.region ?? '', type: 'string' },
+          { key: 'service', value: a.awsv4?.service ?? '', type: 'string' },
+        ],
+      }
     default:
       return undefined
   }

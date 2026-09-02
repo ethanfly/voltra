@@ -72,6 +72,63 @@ function mapAuth(a: Any, ctx: Ctx): AuthConfig {
           in: authVal(a.apikey, 'in') === 'query' ? 'query' : 'header',
         },
       }
+    case 'jwt':
+      return { type: 'jwt', jwt: { token: authVal(a.jwt, 'token') } }
+    case 'oauth2':
+      // 导入只认 accessToken（手填形态）；Postman 的授权码流程配置（authUrl/redirectUri 等）无对应运行时，忽略
+      return {
+        type: 'oauth2',
+        oauth2: {
+          accessToken: authVal(a.oauth2, 'accessToken'),
+          grant: 'manual',
+          tokenUrl: '',
+          clientId: authVal(a.oauth2, 'clientId'),
+          clientSecret: authVal(a.oauth2, 'clientSecret'),
+          username: '',
+          password: '',
+          scope: '',
+        },
+      }
+    case 'digest':
+    case 'digestauth':
+      return {
+        type: 'digest',
+        digest: {
+          username: authVal(a.digest, 'username'),
+          password: authVal(a.digest, 'password'),
+          realm: authVal(a.digest, 'realm') || undefined,
+        },
+      }
+    case 'signaturev1':
+    case 'oauth1': {
+      // Postman 导出键名 signaturev1；signatureMethod 规范化（非法值回落 HMAC-SHA1）
+      const sm = authVal(a.signaturev1 ?? a.oauth1, 'signatureMethod')
+      const signatureMethod =
+        sm === 'HMAC-SHA256' || sm === 'PLAINTEXT' ? sm : 'HMAC-SHA1'
+      return {
+        type: 'oauth1',
+        oauth1: {
+          consumerKey: authVal(a.signaturev1 ?? a.oauth1, 'consumerKey'),
+          consumerSecret: authVal(a.signaturev1 ?? a.oauth1, 'consumerSecret'),
+          token: authVal(a.signaturev1 ?? a.oauth1, 'token'),
+          tokenSecret: authVal(a.signaturev1 ?? a.oauth1, 'tokenSecret'),
+          signatureMethod,
+          realm: authVal(a.signaturev1 ?? a.oauth1, 'realm') || undefined,
+        },
+      }
+    }
+    case 'awsv4':
+      // Postman 字段名 accessKey/secretKey → 前端 accessKeyId/secretAccessKey
+      return {
+        type: 'awsv4',
+        awsv4: {
+          accessKeyId: authVal(a.awsv4, 'accessKey'),
+          secretAccessKey: authVal(a.awsv4, 'secretKey'),
+          sessionToken: authVal(a.awsv4, 'sessionToken') || undefined,
+          region: authVal(a.awsv4, 'region'),
+          service: authVal(a.awsv4, 'service'),
+        },
+      }
     default:
       if (typeof a.type === 'string' && a.type !== 'noauth') {
         ctx.skipped.n++

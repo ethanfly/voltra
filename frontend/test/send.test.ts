@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { workspace } from '../src/stores/workspace'
 import { env, varMeta } from '../src/stores/env'
-import { newProject, newCollection, newFolder, newRequest } from '../src/types/models'
+import { newProject, newCollection, newFolder, newRequest, defaultHeaders, APP_VERSION } from '../src/types/models'
 import { buildGoRequest, mergedHeaders, effectiveAuth, inheritedHeaderKeys } from '../src/lib/send'
 
 function setup() {
@@ -169,6 +169,90 @@ describe('buildGoRequest', () => {
       sendCookies: true,
       method: 'GET',
     })
+  })
+})
+
+describe('auth 注入：阶段17 新类型', () => {
+  it('jwt 注入 Authorization: Bearer；raw 模式保留 {{var}} 原样', () => {
+    const { r } = setup()
+    env.globalVars = [{ key: 'sig', initialValue: '', currentValue: 'x509', enabled: true }]
+    r.auth = { type: 'jwt', jwt: { token: 'eyJ.abc.{{sig}}' } }
+    let go = buildGoRequest(r)
+    expect(go.headers.find((h) => h.key === 'Authorization')?.value).toBe('Bearer eyJ.abc.x509')
+    go = buildGoRequest(r, { resolve: false })
+    expect(go.headers.find((h) => h.key === 'Authorization')?.value).toBe('Bearer eyJ.abc.{{sig}}')
+  })
+
+  it('oauth2：accessToken 非空注入 Bearer；为空不注入（无 Authorization 头）', () => {
+    const { r } = setup()
+    r.auth = {
+      type: 'oauth2',
+      oauth2: { accessToken: 'at-1', grant: 'manual', tokenUrl: '', clientId: '', clientSecret: '', username: '', password: '', scope: '' },
+    }
+    let go = buildGoRequest(r)
+    expect(go.headers.find((h) => h.key === 'Authorization')?.value).toBe('Bearer at-1')
+    r.auth.oauth2!.accessToken = ''
+    go = buildGoRequest(r)
+    expect(go.headers.find((h) => h.key === 'Authorization')).toBeUndefined()
+  })
+
+  it('digest/oauth1/awsv4 不注入 Authorization，经结构化字段透传（变量可替换）', () => {
+    const { r } = setup()
+    env.globalVars = [{ key: 'u', initialValue: '', currentValue: 'dig-user', enabled: true }]
+
+    r.auth = { type: 'digest', digest: { username: '{{u}}', password: 'pw', realm: 'test' } }
+    let go = buildGoRequest(r)
+    expect(go.headers.find((h) => h.key === 'Authorization')).toBeUndefined()
+    expect(go.digest).toEqual({ username: 'dig-user', password: 'pw', realm: 'test' })
+    expect(go.oauth1).toBeNull()
+    expect(go.awsV4).toBeNull()
+
+    r.auth = {
+      type: 'oauth1',
+      oauth1: { consumerKey: 'ck', consumerSecret: 'cs', token: 'tk', tokenSecret: 'ts', signatureMethod: 'HMAC-SHA256' },
+    }
+    go = buildGoRequest(r)
+    expect(go.headers.find((h) => h.key === 'Authorization')).toBeUndefined()
+    expect(go.digest).toBeNull()
+    expect(go.awsV4).toBeNull()
+    expect(go.oauth1).toEqual({
+      consumerKey: 'ck',
+      consumerSecret: 'cs',
+      token: 'tk',
+      tokenSecret: 'ts',
+      signatureMethod: 'HMAC-SHA256',
+    })
+
+    r.auth = { type: 'awsv4', awsv4: { accessKeyId: 'AK', secretAccessKey: 'SK', region: 'us-east-1', service: 's3' } }
+    go = buildGoRequest(r)
+    expect(go.oauth1).toBeNull()
+    expect(go.awsV4).toEqual({ accessKeyId: 'AK', secretAccessKey: 'SK', region: 'us-east-1', service: 's3' })
+  })
+
+  it('签名型 + inherit 链：祖先配 digest，请求 inherit → 结构化字段生效', () => {
+    const { r, f } = setup()
+    f.auth = { type: 'digest', digest: { username: 'a', password: 'b' } }
+    r.auth = { type: 'inherit' }
+    const go = buildGoRequest(r)
+    expect(go.digest).toEqual({ username: 'a', password: 'b' })
+  })
+})
+
+describe('默认请求头', () => {
+  it('newRequest 带 4 行默认头，UA 与 APP_VERSION 交叉锁定', () => {
+    expect(defaultHeaders()).toEqual([
+      { key: 'User-Agent', value: `Voltra/${APP_VERSION}`, enabled: true },
+      { key: 'Accept', value: '*/*', enabled: true },
+      { key: 'Accept-Language', value: 'zh-CN', enabled: true },
+      { key: 'Cache-Control', value: 'no-cache', enabled: true },
+    ])
+    expect(defaultHeaders()[0].value).toBe('Voltra/0.2.0')
+    expect(newRequest().headers).toEqual(defaultHeaders())
+  })
+
+  it('导入路径显式传 headers 时不携带默认行（...partial 覆盖）', () => {
+    const r = newRequest({ headers: [{ key: 'X-Only', value: '1', enabled: true }] })
+    expect(r.headers).toEqual([{ key: 'X-Only', value: '1', enabled: true }])
   })
 })
 

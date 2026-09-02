@@ -6,8 +6,8 @@ import { scheduleSave } from '../lib/persist'
 
 export const settings = reactive<AppSettings>({ ...defaultSettings() })
 
-/** 应用版本（与 build/config.yml 保持一致） */
-export const APP_VERSION = '0.2.0'
+// 版本常量定义在 types/models.ts（defaultHeaders 的 User-Agent 行要用），此处 re-export 保持旧引用路径
+export { APP_VERSION } from '../types/models'
 
 let themeWatcherStarted = false
 

@@ -110,7 +110,7 @@ describe('parsePostman', () => {
   it('树形状：2 层文件夹 + 5 接口，跳过项计数', () => {
     expect(res.requestCount).toBe(5)
     expect(res.folderCount).toBe(3)
-    expect(res.skipped).toBe(3) // oauth2 auth + 无路径 file + 畸形 Broken
+    expect(res.skipped).toBe(2) // 无路径 file + 畸形 Broken（oauth2 已支持，不再计数）
     const items = res.collection.items
     expect(items.map((n) => n.name)).toEqual(['Users', 'Nested', 'Login', 'OAuth2'])
     const users = items[0]
@@ -162,10 +162,13 @@ describe('parsePostman', () => {
     expect(login.auth).toEqual({ type: 'apikey', apikey: { key: 'k1', value: 'v1', in: 'header' } })
   })
 
-  it('OAuth2：不支持 auth → none + warning', () => {
+  it('OAuth2：映射为 hand-filled 形态（accessToken 空 + grant manual，不计数跳过）', () => {
     const o = res.collection.items[3] as Request
-    expect(o.auth).toEqual({ type: 'none' })
-    expect(res.warnings.some((w) => w.includes('oauth2'))).toBe(true)
+    expect(o.auth).toEqual({
+      type: 'oauth2',
+      oauth2: { accessToken: '', grant: 'manual', tokenUrl: '', clientId: '', clientSecret: '', username: '', password: '', scope: '' },
+    })
+    expect(res.warnings.some((w) => w.includes('oauth2'))).toBe(false)
   })
 
   it('非法 JSON / 非集合 → ok:false 不抛', () => {
@@ -328,5 +331,175 @@ describe('exportPostmanCollection', () => {
     const out = JSON.parse(exportPostmanCollection(p))
     expect(out.item.map((i: { name: string }) => i.name)).toEqual(['A', 'B'])
     expect(out.item[0].item).toEqual([])
+  })
+})
+
+// ---------- 阶段17：5 个新 auth 类型导入映射 + 导出往返 ----------
+describe('parsePostman 新 auth 映射（jwt/digest/oauth1/awsv4 + 不支持仍计数）', () => {
+  const r = parsePostman(
+    JSON.stringify({
+      info: { name: 'auth' },
+      item: [
+        { name: 'J', request: { method: 'GET', url: 'https://x.com', auth: { type: 'jwt', jwt: [{ key: 'token', value: 'abc' }] } } },
+        {
+          name: 'D',
+          request: {
+            method: 'GET',
+            url: 'https://x.com',
+            auth: {
+              type: 'digest',
+              digest: [{ key: 'username', value: 'u' }, { key: 'password', value: 'p' }, { key: 'realm', value: 'r' }],
+            },
+          },
+        },
+        {
+          name: 'O1',
+          request: {
+            method: 'GET',
+            url: 'https://x.com',
+            auth: {
+              type: 'signaturev1',
+              signaturev1: [
+                { key: 'consumerKey', value: 'ck' },
+                { key: 'consumerSecret', value: 'cs' },
+                { key: 'token', value: 'tk' },
+                { key: 'tokenSecret', value: 'ts' },
+                { key: 'signatureMethod', value: 'HMAC-SHA256' },
+              ],
+            },
+          },
+        },
+        {
+          name: 'A4',
+          request: {
+            method: 'GET',
+            url: 'https://x.com',
+            auth: {
+              type: 'awsv4',
+              awsv4: [
+                { key: 'accessKey', value: 'AK' },
+                { key: 'secretKey', value: 'SK' },
+                { key: 'region', value: 'us-east-1' },
+                { key: 'service', value: 's3' },
+              ],
+            },
+          },
+        },
+        { name: 'H', request: { method: 'GET', url: 'https://x.com', auth: { type: 'hawk', hawk: [] } } },
+      ],
+    }),
+  )
+  expect(r.ok).toBe(true)
+  const res = r as Extract<typeof r, { ok: true }>
+
+  it('jwt / digest / oauth1 / awsv4 逐字段映射', () => {
+    const items = res.collection.items
+    expect((items[0] as Request).auth).toEqual({ type: 'jwt', jwt: { token: 'abc' } })
+    expect((items[1] as Request).auth).toEqual({ type: 'digest', digest: { username: 'u', password: 'p', realm: 'r' } })
+    expect((items[2] as Request).auth).toEqual({
+      type: 'oauth1',
+      oauth1: { consumerKey: 'ck', consumerSecret: 'cs', token: 'tk', tokenSecret: 'ts', signatureMethod: 'HMAC-SHA256' },
+    })
+    expect((items[3] as Request).auth).toEqual({
+      type: 'awsv4',
+      awsv4: { accessKeyId: 'AK', secretAccessKey: 'SK', region: 'us-east-1', service: 's3' },
+    })
+  })
+
+  it('signatureMethod 非法值回落 HMAC-SHA1', () => {
+    const r2 = parsePostman(
+      JSON.stringify({
+        info: { name: 'x' },
+        item: [
+          {
+            name: 'O1',
+            request: {
+              method: 'GET',
+              url: 'https://x.com',
+              auth: { type: 'oauth1', oauth1: [{ key: 'signatureMethod', value: 'weird' }] },
+            },
+          },
+        ],
+      }),
+    )
+    const ok = r2 as Extract<typeof r2, { ok: true }>
+    expect((ok.collection.items[0] as Request).auth.oauth1?.signatureMethod).toBe('HMAC-SHA1')
+  })
+
+  it('hawk 仍不支持 → none + warning + 计数', () => {
+    expect((res.collection.items[4] as Request).auth).toEqual({ type: 'none' })
+    expect(res.skipped).toBe(1)
+    expect(res.warnings.some((w) => w.includes('hawk'))).toBe(true)
+  })
+})
+
+describe('exportPostmanCollection 新 auth 往返', () => {
+  it('jwt/digest/oauth1/oauth2/awsv4 导出再导入字段一致', () => {
+    const p = newProject({ name: 'P' })
+    const c = newCollection({ name: 'C' })
+    p.collections.push(c)
+    c.items.push(
+      newRequest({
+        name: 'j',
+        url: 'https://x.com',
+        auth: { type: 'jwt', jwt: { token: 't' } },
+      }),
+      newRequest({
+        name: 'd',
+        url: 'https://x.com',
+        auth: { type: 'digest', digest: { username: 'u', password: 'p', realm: 'r' } },
+      }),
+      newRequest({
+        name: 'o1',
+        url: 'https://x.com',
+        auth: {
+          type: 'oauth1',
+          oauth1: {
+            consumerKey: 'ck',
+            consumerSecret: 'cs',
+            token: 'tk',
+            tokenSecret: 'ts',
+            signatureMethod: 'PLAINTEXT',
+          },
+        },
+      }),
+      newRequest({
+        name: 'o2',
+        url: 'https://x.com',
+        auth: {
+          type: 'oauth2',
+          oauth2: {
+            accessToken: 'at',
+            grant: 'manual',
+            tokenUrl: '',
+            clientId: 'cid',
+            clientSecret: 'sec',
+            username: '',
+            password: '',
+            scope: '',
+          },
+        },
+      }),
+      newRequest({
+        name: 'a4',
+        url: 'https://x.com',
+        auth: { type: 'awsv4', awsv4: { accessKeyId: 'AK', secretAccessKey: 'SK', region: 'eu-west-1', service: 's3' } },
+      }),
+    )
+    const r = parsePostman(exportPostmanCollection(p))
+    expect(r.ok).toBe(true)
+    const ok = r as Extract<typeof r, { ok: true }>
+    expect(ok.skipped).toBe(0)
+    const items = ok.collection.items
+    expect((items[0] as Request).auth).toEqual({ type: 'jwt', jwt: { token: 't' } })
+    expect((items[1] as Request).auth).toEqual({ type: 'digest', digest: { username: 'u', password: 'p', realm: 'r' } })
+    expect((items[2] as Request).auth.oauth1).toMatchObject({ signatureMethod: 'PLAINTEXT', consumerKey: 'ck' })
+    expect((items[3] as Request).auth.oauth2).toMatchObject({
+      accessToken: 'at',
+      grant: 'manual',
+      clientId: 'cid',
+      clientSecret: 'sec',
+    })
+    expect((items[4] as Request).auth.awsv4).toMatchObject({ accessKeyId: 'AK', secretAccessKey: 'SK', region: 'eu-west-1', service: 's3' })
   })
 })

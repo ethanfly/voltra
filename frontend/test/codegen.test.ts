@@ -312,3 +312,61 @@ describe('全语言 smoke', () => {
     }
   })
 })
+
+// ---------- 阶段17：签名型 auth NOTE + jwt 双模式 ----------
+describe('签名型 auth（digest/oauth1/awsv4）：首行 NOTE 注释', () => {
+  function withAuth(type: 'digest' | 'oauth1' | 'awsv4'): Request {
+    const r = setup()
+    if (type === 'digest') r.auth = { type: 'digest', digest: { username: 'u', password: 'p' } }
+    else if (type === 'oauth1')
+      r.auth = {
+        type: 'oauth1',
+        oauth1: { consumerKey: 'ck', consumerSecret: 'cs', token: 'tk', tokenSecret: 'ts', signatureMethod: 'HMAC-SHA1' },
+      }
+    else r.auth = { type: 'awsv4', awsv4: { accessKeyId: 'AK', secretAccessKey: 'SK', region: 'us-east-1', service: 's3' } }
+    return r
+  }
+
+  for (const type of ['digest', 'oauth1', 'awsv4'] as const) {
+    it(`${type}：shell/ruby 用 # 注释，其余用 //；正文不出现 Authorization`, () => {
+      const r = withAuth(type)
+      const ctx = buildCodegenCtx(r, false)
+      expect(ctx.authNote).toBeTruthy()
+
+      const shell = gen('shell:curl', ctx)
+      expect(shell.startsWith('# NOTE: ')).toBe(true)
+      expect(shell.split('\n')[0]).toContain('NOTE')
+      const ruby = gen('ruby:net/http', ctx)
+      expect(ruby.startsWith('# NOTE: ')).toBe(true)
+      const go = gen('golang:net/http', ctx)
+      expect(go.startsWith('// NOTE: ')).toBe(true)
+      const py = gen('python:requests', ctx)
+      expect(py.startsWith('// NOTE: ')).toBe(true)
+
+      for (const key of GOLDEN_KEYS) {
+        expect(gen(key, ctx)).not.toContain('Authorization')
+      }
+    })
+  }
+
+  it('bearer/jwt 等前端注入型无 NOTE（golden 逐字符不变已由上方 golden 套件覆盖）', () => {
+    const r = setup()
+    r.auth = { type: 'jwt', jwt: { token: 'abc' } }
+    const ctx = buildCodegenCtx(r, false)
+    expect(ctx.authNote).toBeNull()
+    expect(gen('shell:curl', ctx)).not.toContain('NOTE')
+  })
+})
+
+describe('jwt：raw / 环境替换双模式均注入 Bearer Authorization', () => {
+  it('raw 模式保留 {{var}}；替换模式算出真实 token', () => {
+    const r = setup()
+    r.auth = { type: 'jwt', jwt: { token: 'eyJ.{{tok}}.sig' } }
+    const rawOut = gen('shell:curl', buildCodegenCtx(r, false))
+    expect(rawOut).toContain(`-H 'Authorization: Bearer eyJ.{{tok}}.sig'`)
+
+    env.globalVars = [{ key: 'tok', initialValue: '', currentValue: 'real', enabled: true }]
+    const resolvedOut = gen('shell:curl', buildCodegenCtx(r, true))
+    expect(resolvedOut).toContain(`-H 'Authorization: Bearer eyJ.real.sig'`)
+  })
+})

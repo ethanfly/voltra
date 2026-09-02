@@ -11,12 +11,17 @@ export {
 };
 
 export type {
+    AuthAWSV4,
+    AuthDigest,
+    AuthOAuth1,
     DownloadResult,
     FormField,
     GraphQLBody,
     HTTPRequest,
     HTTPResponse,
     KVPair,
+    OAuth2TokenRequest,
+    OAuth2TokenResponse,
     ResponseTimings,
     WSConnectOptions
 } from "./models.js";

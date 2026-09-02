@@ -9,7 +9,7 @@ import type {
   Request,
   TreeNode,
 } from '../types/models'
-import { newProject, newCollection, newFolder, newRequest, uid } from '../types/models'
+import { newProject, newCollection, newFolder, newRequest, uid, cloneDeep } from '../types/models'
 import { scheduleSave } from '../lib/persist'
 
 export const workspace = reactive({
@@ -245,7 +245,8 @@ function cloneNodeWithNewIds(n: TreeNode): TreeNode {
         urlencoded: x.body.urlencoded?.map((kv) => ({ ...kv })),
         graphql: x.body.graphql ? { ...x.body.graphql } : undefined,
       },
-      auth: { ...x.auth },
+      // auth 子对象（bearer/jwt/oauth2 等）必须深拷贝，否则副本与原节点共享引用、改一丢一
+      auth: cloneDeep(x.auth),
       settings: { ...x.settings },
     }
   }

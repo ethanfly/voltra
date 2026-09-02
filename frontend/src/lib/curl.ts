@@ -1,7 +1,7 @@
 // cURL 命令解析（纯函数）：粘贴 cURL → 前端 Request
 // 覆盖常用选项：-X/-H/--data(-raw)/--data-urlencode/-F/-u/-b/-k/-L/--max-time/--max-redirs/-G
 // 不支持的选项收集进 warnings，不抛异常；解析失败返回 { ok: false, error }
-import type { Request, KVPair, FormField } from '../types/models'
+import type { Request, KVPair, FormField, AuthConfig } from '../types/models'
 import { newRequest } from '../types/models'
 import { splitUrlToQuery } from './url'
 
@@ -80,6 +80,17 @@ function flagValue(tokens: string[], i: number, tok: string): [string, number] {
 
 function isDataFlag(f: string): boolean {
   return f === '-d' || f === '--data' || f === '--data-raw' || f === '--data-binary' || f === '--data-ascii'
+}
+
+/** Base64 → UTF-8 安全解码（send.ts b64Unicode 的逆；非法 UTF-8 返回 null） */
+function b64UnicodeDecode(s: string): string | null {
+  try {
+    const bin = atob(s)
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0))
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return null
+  }
 }
 
 /** 解析 cURL 命令文本。永不抛异常。 */
@@ -392,6 +403,37 @@ export function parseCurl(input: string): CurlParseResult {
     /* 保留默认名 */
   }
 
+  // auth：-u 优先；否则从 Authorization 头反推（Bearer → bearer，Basic → basic）
+  let auth: AuthConfig =
+    basic || forceBasic ? { type: 'basic', basic: basic ?? { username: '', password: '' } } : { type: 'none' }
+  {
+    const ai = headers.findIndex((h) => h.enabled && h.key.trim().toLowerCase() === 'authorization')
+    if (ai >= 0) {
+      if (basic || forceBasic) {
+        headers.splice(ai, 1) // -u 优先，删冗余 Authorization 行
+      } else {
+        const m = headers[ai].value.match(/^(Basic|Bearer)\s+(.+)$/i)
+        if (m && m[1].toLowerCase() === 'bearer') {
+          auth = { type: 'bearer', bearer: { token: m[2].trim() } }
+          headers.splice(ai, 1)
+        } else if (m && m[1].toLowerCase() === 'basic') {
+          const decoded = b64UnicodeDecode(m[2].trim())
+          if (decoded !== null) {
+            const ci = decoded.indexOf(':')
+            auth = {
+              type: 'basic',
+              basic: { username: ci >= 0 ? decoded.slice(0, ci) : decoded, password: ci >= 0 ? decoded.slice(ci + 1) : '' },
+            }
+            headers.splice(ai, 1)
+          } else {
+            warnings.push('Basic Authorization 解码失败，保留原 Header 行')
+          }
+        }
+        // 其他 scheme（Digest/OAuth/AWS 等）无法从单行头还原凭证，原样保留
+      }
+    }
+  }
+
   const req = newRequest({
     name,
     protocol: 'http',
@@ -400,10 +442,7 @@ export function parseCurl(input: string): CurlParseResult {
     params: pairs,
     headers,
     body,
-    auth:
-      basic || forceBasic
-        ? { type: 'basic', basic: basic ?? { username: '', password: '' } }
-        : { type: 'none' },
+    auth,
     settings: {
       ...newRequest().settings,
       timeoutMs: timeoutMs ?? 30000,

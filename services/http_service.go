@@ -69,6 +69,32 @@ type GraphQLBody struct {
 	Variables string `json:"variables"` // JSON 字符串，可为空
 }
 
+// AuthDigest Digest 鉴权（RFC 2069/7616），Go 侧经 401 挑战-应答完成，见 auth.go
+type AuthDigest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Realm    string `json:"realm,omitempty"` // 空 → 用 401 挑战里的 realm
+}
+
+// AuthOAuth1 OAuth 1.0 签名（RFC 5849），Go 侧运行时计算
+type AuthOAuth1 struct {
+	ConsumerKey     string `json:"consumerKey"`
+	ConsumerSecret  string `json:"consumerSecret"`
+	Token           string `json:"token"`
+	TokenSecret     string `json:"tokenSecret"`
+	SignatureMethod string `json:"signatureMethod"` // HMAC-SHA1 | HMAC-SHA256 | PLAINTEXT，空 → HMAC-SHA1
+	Realm           string `json:"realm,omitempty"`
+}
+
+// AuthAWSV4 AWS Signature Version 4，Go 侧运行时计算
+type AuthAWSV4 struct {
+	AccessKeyID     string `json:"accessKeyId"`
+	SecretAccessKey string `json:"secretAccessKey"`
+	SessionToken    string `json:"sessionToken,omitempty"`
+	Region          string `json:"region"`
+	Service         string `json:"service"`
+}
+
 // HTTPRequest 前端传入的请求描述
 // 注意：变量替换（{{var}}）已在前端发送前完成，Go 侧收到的是最终值，不感知变量
 type HTTPRequest struct {
@@ -88,6 +114,11 @@ type HTTPRequest struct {
 	MaxRedirects          int          `json:"maxRedirects"`          // 0 → 10
 	InsecureSkipTlsVerify bool         `json:"insecureSkipTlsVerify"`
 	SendCookies           bool         `json:"sendCookies"` // false → 不挂 CookieJar
+
+	// 需要挑战-应答 / 复杂签名的鉴权走结构化字段，由 Go 侧处理（Bearer/Basic/APIKey 等仍由前端注入 Headers）
+	Digest *AuthDigest `json:"digest,omitempty"`
+	OAuth1 *AuthOAuth1 `json:"oauth1,omitempty"`
+	AWSV4  *AuthAWSV4  `json:"awsV4,omitempty"`
 }
 
 // ResponseTimings 各阶段耗时拆解（httptrace 采集）
@@ -118,6 +149,43 @@ type HTTPResponse struct {
 // maxBodyBytes 响应体读取硬上限（64MB），超出部分丢弃并置 Truncated
 const maxBodyBytes = 64 * 1024 * 1024
 
+// defaultUserAgent 用户未设置 User-Agent 时的兜底（与前端 defaultHeaders 的行值保持一致，
+// 覆盖旧请求 / 导入请求没带 UA 行的情况；升级版本时两处一起改）
+const defaultUserAgent = "Voltra/0.2.0"
+
+// applyHeaders 应用用户头（前端已合并 auth 注入的最终头），并自动兜底 Content-Type 与 User-Agent。
+// SendRequest 与 DownloadRequest 共用，保证两条路径行为一致
+func applyHeaders(httpReq *http.Request, headers []KVPair, contentTypeHint string) {
+	for _, hd := range headers {
+		if hd.Enabled && hd.Key != "" {
+			httpReq.Header.Set(hd.Key, hd.Value)
+		}
+	}
+	// 常见 body 类型自动补 Content-Type，用户已手动设置则不覆盖
+	if contentTypeHint != "" && httpReq.Header.Get("Content-Type") == "" {
+		httpReq.Header.Set("Content-Type", contentTypeHint)
+	}
+	if httpReq.Header.Get("User-Agent") == "" {
+		httpReq.Header.Set("User-Agent", defaultUserAgent)
+	}
+}
+
+// materializeBody 把 body 全量读入内存（digest 重试 / SigV4 签名需要 body 可重读或可哈希）。
+// 上限与响应侧同口径（maxBodyBytes），超限报错
+func materializeBody(r io.Reader) ([]byte, error) {
+	if r == nil {
+		return nil, nil
+	}
+	b, err := io.ReadAll(io.LimitReader(r, maxBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(b) > maxBodyBytes {
+		return nil, fmt.Errorf("请求体超过 %dMB 上限，无法在该鉴权方式下重发", maxBodyBytes/1024/1024)
+	}
+	return b, nil
+}
+
 // SendRequest 发送请求。
 // ctx 由 Wails 运行时自动注入（生成器会跳过该参数，前端签名不变），
 // 前端调用 CancellablePromise.cancel() 时 ctx 被取消，请求随之中断
@@ -139,19 +207,38 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 		return errorResponse(err, "bad_url", time.Since(start)), nil
 	}
 
+	// digest 重试 / SigV4 签名需要 body 可重读（digest）或可哈希（SigV4）→ 全量入内存
+	var bodyBytes []byte
+	if req.Digest != nil || req.AWSV4 != nil {
+		bodyBytes, err = materializeBody(bodyReader)
+		if err != nil {
+			return errorResponse(err, "bad_url", time.Since(start)), nil
+		}
+		if bodyBytes != nil {
+			bodyReader = bytes.NewReader(bodyBytes)
+		}
+	}
+
 	httpReq, err := http.NewRequestWithContext(ctx, strings.ToUpper(req.Method), fullURL, bodyReader)
 	if err != nil {
 		return errorResponse(err, "bad_url", time.Since(start)), nil
 	}
+	applyHeaders(httpReq, req.Headers, contentTypeHint)
 
-	for _, hd := range req.Headers {
-		if hd.Enabled && hd.Key != "" {
-			httpReq.Header.Set(hd.Key, hd.Value)
+	// 签名必须在头集最终确定（含 Content-Type / User-Agent 兜底）之后，保证签名覆盖最终发送的头
+	if req.AWSV4 != nil {
+		if err := awsV4Sign(httpReq, req.AWSV4, sha256HexStr(bodyBytes), time.Now().UTC()); err != nil {
+			return errorResponse(err, "other", time.Since(start)), nil
 		}
 	}
-	// 常见 body 类型自动补 Content-Type，前端如果已手动设置 Header 则不覆盖
-	if contentTypeHint != "" && httpReq.Header.Get("Content-Type") == "" {
-		httpReq.Header.Set("Content-Type", contentTypeHint)
+	if req.OAuth1 != nil {
+		nonce, err := randomHexN(16)
+		if err != nil {
+			return errorResponse(err, "other", time.Since(start)), nil
+		}
+		if err := signOAuth1(httpReq, req.OAuth1, bodyBytes, time.Now(), nonce); err != nil {
+			return errorResponse(err, "other", time.Since(start)), nil
+		}
 	}
 
 	client := buildClient(req)
@@ -169,7 +256,7 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 	}
 	httpReq = httpReq.WithContext(httptrace.WithClientTrace(ctx, trace))
 
-	resp, err := client.Do(httpReq)
+	resp, err := doAuthedRequest(ctx, client, httpReq, bodyBytes, req)
 	durationMs := time.Since(start).Milliseconds()
 	tt.end()
 	if err != nil {
@@ -304,21 +391,39 @@ func (h *HTTPService) DownloadRequest(ctx context.Context, req HTTPRequest) (Dow
 	if err != nil {
 		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
 	}
+	// 与 SendRequest 相同：digest 重试 / SigV4 签名需要 body 可重读 / 可哈希
+	var bodyBytes []byte
+	if req.Digest != nil || req.AWSV4 != nil {
+		bodyBytes, err = materializeBody(bodyReader)
+		if err != nil {
+			return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
+		}
+		if bodyBytes != nil {
+			bodyReader = bytes.NewReader(bodyBytes)
+		}
+	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, strings.ToUpper(req.Method), fullURL, bodyReader)
 	if err != nil {
 		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
 	}
-	for _, hd := range req.Headers {
-		if hd.Enabled && hd.Key != "" {
-			httpReq.Header.Set(hd.Key, hd.Value)
+	applyHeaders(httpReq, req.Headers, contentTypeHint)
+	if req.AWSV4 != nil {
+		if err := awsV4Sign(httpReq, req.AWSV4, sha256HexStr(bodyBytes), time.Now().UTC()); err != nil {
+			return DownloadResult{Error: err.Error(), ErrorKind: "other", DurationMs: time.Since(start).Milliseconds()}, nil
 		}
 	}
-	if contentTypeHint != "" && httpReq.Header.Get("Content-Type") == "" {
-		httpReq.Header.Set("Content-Type", contentTypeHint)
+	if req.OAuth1 != nil {
+		nonce, err := randomHexN(16)
+		if err != nil {
+			return DownloadResult{Error: err.Error(), ErrorKind: "other", DurationMs: time.Since(start).Milliseconds()}, nil
+		}
+		if err := signOAuth1(httpReq, req.OAuth1, bodyBytes, time.Now(), nonce); err != nil {
+			return DownloadResult{Error: err.Error(), ErrorKind: "other", DurationMs: time.Since(start).Milliseconds()}, nil
+		}
 	}
 
-	resp, err := buildClient(req).Do(httpReq)
+	resp, err := doAuthedRequest(ctx, buildClient(req), httpReq, bodyBytes, req)
 	if err != nil {
 		return DownloadResult{
 			Error:      err.Error(),
