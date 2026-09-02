@@ -61,6 +61,12 @@ task build      # 生产构建，产物在 bin/
 
 - Go 1.25+
 - Node.js 18+
+- [Task CLI](https://taskfile.dev)（跑 `task dev` / `task build` 用）：
+  ```bash
+  brew install go-task        # macOS
+  go install github.com/go-task/task/v3/cmd/task@latest   # 或
+  ```
+  不想装 Task 也可以直接跑等价的 wails3 命令：`wails3 dev -config ./build/config.yml -port 9245` / `wails3 build -config ./build/config.yml`
 - 三端系统依赖：
   - **Windows**：WebView2 Runtime（Win10 1809+ 一般已自带）
   - **macOS**：无需额外安装（使用系统 WebKit）
