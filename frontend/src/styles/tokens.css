@@ -139,12 +139,12 @@ body,
   height: 100%;
 }
 
-/* 缩放 = 页面缩放（Cmd+=，lib/zoom.ts 维护 --app-zoom）× 字体大小（设置，
-   stores/settings.ts 维护 --font-zoom）。zoom 让布局盒按 1/zoom 收缩重排，
-   放大后整页流式适配窗口，不出现页面级滚动条（Wails webview 的 magnification
-   是纯渲染放大不重排，已弃用） */
+/* 页面缩放（Cmd/Ctrl ±、顶栏滑条，lib/zoom.ts 维护 --app-zoom，范围 50%–150%）。
+   zoom 让布局盒按 1/zoom 收缩重排，放大后整页流式适配窗口，不出现页面级滚动条
+   （Wails webview 的 magnification 是纯渲染放大不重排，已弃用）。
+   原「字体大小」设置已移除，统一走页面缩放 */
 #app {
-  zoom: calc(var(--font-zoom, 1) * var(--app-zoom, 1));
+  zoom: var(--app-zoom, 1);
 }
 
 body {
@@ -156,6 +156,13 @@ body {
   background: var(--bg);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+/* 树拖拽中（components/tree/dnd-state.ts 维护 body class）：全局禁止选中、抓取光标 */
+body.tv-dragging,
+body.tv-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 
 ::-webkit-scrollbar {

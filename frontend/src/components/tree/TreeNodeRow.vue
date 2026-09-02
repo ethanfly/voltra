@@ -2,20 +2,14 @@
 // 树节点行（folder / request）：方法色标、激活态、双击内联重命名、
 // 原生 DnD（before/after/inside）、右键菜单（向父级 emit）
 // 递归渲染：SFC 通过文件名隐式自引用
-import { computed, ref, watch } from 'vue'
-import { ChevronRight, ChevronDown, Pencil, Trash2, FilePlus2 } from 'lucide-vue-next'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ChevronRight, ChevronDown, Pencil, Trash2, FilePlus2, FolderPlus } from 'lucide-vue-next'
 import type { TreeNode, Request, ID, Folder } from '../../types/models'
 import { isExpanded, toggleExpanded, setExpanded } from '../../stores/ui-state'
 import { activeRequest, openRequest } from '../../stores/tabs'
-import {
-  currentProject,
-  renameNode,
-  moveNode,
-  isDescendant,
-  addRequest,
-} from '../../stores/workspace'
+import { renameNode, addRequest, addFolder } from '../../stores/workspace'
 import { nodeIcon } from '../../lib/tree-icons'
-import { dragNodeId, dragIsCollection, dropTarget, resetDnd, type DropPos } from './dnd-state'
+import { dropTarget, registerRow, unregisterRow, startRowDrag, wasJustDragged, type DropPos } from './dnd-state'
 import { t } from '../../locales/zh-CN'
 
 const L = t()
@@ -89,6 +83,12 @@ function onHoverNewRequest() {
   setExpanded(props.node.id, true)
   emit('focus-rename', r.id)
 }
+function onHoverNewFolder() {
+  if (isRequest.value) return
+  const f = addFolder(props.node as Folder, L.tree.newFolder)
+  setExpanded(props.node.id, true)
+  emit('focus-rename', f.id)
+}
 function onHoverDelete() {
   emit('delete', props.node)
 }
@@ -96,6 +96,7 @@ function onHoverDelete() {
 // ---------- 点击 ----------
 function onClick() {
   if (renaming.value) return
+  if (wasJustDragged()) return // 拖拽刚结束，吞掉落点上的 click
   if (req.value) openRequest(req.value)
   else toggleExpanded(props.node.id)
 }
@@ -107,67 +108,38 @@ function onContext(e: MouseEvent) {
   emit('menu', props.node, e.clientX, e.clientY)
 }
 
-// ---------- 拖拽 ----------
+// ---------- 拖拽（鼠标拖拽，主循环见 dnd-state.ts） ----------
 const isDropTarget = computed(() => dropTarget.value?.id === props.node.id)
 const dropPos = computed<DropPos | null>(() =>
   isDropTarget.value ? dropTarget.value!.pos : null,
 )
-
-function onDragStart(e: DragEvent) {
-  dragNodeId.value = props.node.id
-  if (!e.dataTransfer) return
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', props.node.id)
+// 登记本行 el 供命中测试
+const rowEl = ref<HTMLElement | null>(null)
+const rowKind = computed(() => (isRequest.value ? 'request' : 'folder'))
+onMounted(() => {
+  if (rowEl.value) registerRow(props.node.id, rowEl.value, rowKind.value)
+})
+onBeforeUnmount(() => {
+  unregisterRow(props.node.id)
+})
+function onMouseDown(e: MouseEvent) {
+  if (renaming.value) return
+  startRowDrag(e, props.node.id, rowKind.value, props.node.name)
 }
-
-function onDragOver(e: DragEvent) {
-  if (!dragNodeId.value || dragNodeId.value === props.node.id) return
-  if (dragIsCollection.value) return // 集合只能与集合排序
-  const p = currentProject.value
-  // 悬停节点在拖拽源子树内：不显示落点
-  if (p && isDescendant(p, dragNodeId.value, props.node.id)) return
-  e.preventDefault()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const ratio = (e.clientY - rect.top) / rect.height
-  let pos: DropPos
-  if (isRequest.value) {
-    pos = ratio < 0.5 ? 'before' : 'after'
-  } else {
-    pos = ratio < 0.3 ? 'before' : ratio > 0.7 ? 'after' : 'inside'
-  }
-  if (dropTarget.value?.id !== props.node.id || dropTarget.value?.pos !== pos) {
-    dropTarget.value = { id: props.node.id, pos }
-  }
-}
-
-function onDrop(e: DragEvent) {
-  e.preventDefault()
-  const dragId = dragNodeId.value
-  const t = dropTarget.value
-  dragNodeId.value = null
-  dropTarget.value = null
-  if (!dragId || !t) return
-  moveNode(dragId, t.id, t.pos)
-}
-
-function onDragEnd() {
-  resetDnd()
+function setRowEl(el: unknown) {
+  rowEl.value = (el as HTMLElement) ?? null
 }
 </script>
 
 <template>
   <div
+    :ref="setRowEl"
     :class="['tn-row', { 'tn-request': isRequest, active: isActive }]"
     :style="indent"
-    :draggable="!renaming"
     @click="onClick"
     @dblclick="startRename"
     @contextmenu="onContext"
-    @dragstart="onDragStart"
-    @dragover="onDragOver"
-    @drop="onDrop"
-    @dragend="onDragEnd"
+    @mousedown="onMouseDown"
   >
     <!-- 落点指示：before -->
     <div v-if="dropPos === 'before'" class="tn-drop-line before"></div>
@@ -178,8 +150,8 @@ function onDragEnd() {
       :class="{ open: expanded }"
       @click.stop="toggleExpanded(node.id)"
     >
-      <ChevronDown v-if="expanded" :size="12" />
-      <ChevronRight v-else :size="12" />
+      <ChevronDown v-if="expanded" :size="15" />
+      <ChevronRight v-else :size="15" />
     </button>
     <span v-else class="tn-chevron-placeholder"></span>
 
@@ -202,10 +174,13 @@ function onDragEnd() {
         </template>
         {{ node.name }}
       </span>
-      <!-- hover 快捷按钮：文件夹多一个"新建请求"；请求只有改名/删除 -->
+      <!-- hover 快捷按钮：文件夹多"新建请求/新建文件夹"；请求只有改名/删除 -->
       <span class="tn-acts">
         <button v-if="!isRequest" class="tn-act" :title="L.tree.newRequest" @click.stop="onHoverNewRequest">
           <FilePlus2 :size="13" />
+        </button>
+        <button v-if="!isRequest" class="tn-act" :title="L.tree.newFolder" @click.stop="onHoverNewFolder">
+          <FolderPlus :size="13" />
         </button>
         <button class="tn-act" :title="L.common.rename" @click.stop="startRename">
           <Pencil :size="13" />
@@ -267,12 +242,12 @@ function onDragEnd() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -281,7 +256,7 @@ function onDragEnd() {
   color: var(--text);
 }
 .tn-chevron-placeholder {
-  width: 16px;
+  width: 20px;
   flex-shrink: 0;
 }
 .tn-ico {

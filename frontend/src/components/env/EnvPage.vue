@@ -4,13 +4,13 @@
 // 页面始终显示"当前环境"（env.currentEnvId，标题栏切换）的变量 + 项目级 + 全局；
 // 变量行在 VarTable 中原地编辑，onCommit 落盘
 import { computed, ref } from 'vue'
-import { X, Pencil } from 'lucide-vue-next'
+import { X, Pencil, Plus, Layers } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import VarTable from './VarTable.vue'
 import PromptDialog from '../common/PromptDialog.vue'
-import { env, currentEnv, renameEnv } from '../../stores/env'
+import { env, currentEnv, renameEnv, addEnvToProject } from '../../stores/env'
 import { currentProject } from '../../stores/workspace'
-import { closeVarPage } from '../../stores/ui-state'
+import { closeVarPage, activePanel } from '../../stores/ui-state'
 import { scheduleSave } from '../../lib/persist'
 import { t } from '../../locales/zh-CN'
 
@@ -23,6 +23,17 @@ const showRenameEnv = ref(false)
 function confirmRenameEnv(name: string) {
   showRenameEnv.value = false
   if (activeEnv.value) renameEnv(activeEnv.value.id, name)
+}
+
+// 无环境态 CTA：本页直接创建第一个环境
+const showNewEnv = ref(false)
+function confirmNewEnv(name: string) {
+  showNewEnv.value = false
+  const e = addEnvToProject(name)
+  if (e) {
+    env.currentEnvId = e.id
+    commit()
+  }
 }
 
 function commit() {
@@ -65,7 +76,17 @@ function commitGlobal() {
             <span class="vp-sec-hint">{{ activeEnv ? activeEnv.variables.length : 0 }}</span>
           </div>
           <VarTable v-if="activeEnv" :vars="activeEnv.variables" :on-commit="commit" />
-          <p v-else class="vp-none">{{ L.env.noEnv }}</p>
+          <div v-else class="vp-cta">
+            <p class="vp-cta-hint">{{ L.env.createEnvHint }}</p>
+            <div class="vp-cta-actions">
+              <button class="btn btn-primary" @click="showNewEnv = true">
+                <Plus :size="13" /> {{ L.env.createEnv }}
+              </button>
+              <button class="btn" @click="activePanel = 'environments'">
+                <Layers :size="13" /> {{ L.env.manageInSidebar }}
+              </button>
+            </div>
+          </div>
         </section>
 
         <!-- 项目级变量（跨环境，Project.variables） -->
@@ -95,6 +116,13 @@ function commitGlobal() {
       :initial-value="activeEnv.name"
       @confirm="confirmRenameEnv"
       @cancel="showRenameEnv = false"
+    />
+    <PromptDialog
+      v-if="showNewEnv"
+      :title="L.dialog.envNew"
+      :placeholder="L.dialog.envNewPlaceholder"
+      @confirm="confirmNewEnv"
+      @cancel="showNewEnv = false"
     />
   </div>
 </template>
@@ -186,10 +214,24 @@ function commitGlobal() {
   font-size: 11px;
   color: var(--text-faint);
 }
-.vp-none {
+.vp-cta {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.vp-cta-hint {
   margin: 0;
   font-size: 12px;
-  color: var(--text-faint);
-  padding: 4px 2px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.vp-cta-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 </style>

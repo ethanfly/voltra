@@ -7,10 +7,11 @@ import type {
   KVPair,
   FormField,
   HTTPResponse,
+  DownloadResult,
 } from '../types/models'
 import { uid, cloneDeep } from '../types/models'
 import { resolveAll } from '../stores/env'
-import { tabs, inFlight } from '../stores/tabs'
+import { tabs, inFlight, downloads } from '../stores/tabs'
 import { findRequest, nodeAncestors } from '../stores/workspace'
 import type { Collection, Folder } from '../types/models'
 import { addHistory } from '../stores/history'
@@ -223,4 +224,26 @@ export function cancelRequest(tabId: string) {
 
 export function isSending(tabId: string): boolean {
   return inFlight[tabId] !== undefined && inFlight[tabId] !== null
+}
+
+/** 发送并下载：请求体与响应体均不经过前端内存，响应由 Go 侧流式写入用户所选文件。
+ *  返回值 cancelled=true 表示用户在保存对话框点了取消。 */
+export function downloadRequest(tabId: string): Promise<DownloadResult> {
+  const tab = tabs.tabs.find((t) => t.tabId === tabId)
+  if (!tab) return Promise.reject(new Error('tab not found'))
+  const go = buildGoRequest(tab.request)
+  const p = HTTPService.DownloadRequest(go)
+  downloads[tabId] = { cancel: () => p.cancel() }
+  return p.finally(() => {
+    delete downloads[tabId]
+  })
+}
+
+export function cancelDownload(tabId: string) {
+  const d = downloads[tabId]
+  if (d) d.cancel()
+}
+
+export function isDownloading(tabId: string): boolean {
+  return downloads[tabId] !== undefined && downloads[tabId] !== null
 }

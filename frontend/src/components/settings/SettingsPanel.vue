@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 设置面板：主题 / 语言 / 默认超时 / 字号 / URL 协议补全 + 数据目录
+// 设置面板：主题 / 语言 / 默认超时 / 导入上限 / URL 协议补全 + 数据目录
+// （字体大小设置已移除，改为顶栏的页面缩放 pill + 滑条）
 import { computed } from 'vue'
 import { FolderOpen, Download, Archive } from 'lucide-vue-next'
 import { settings, setSettings, APP_VERSION } from '../../stores/settings'
@@ -29,10 +30,6 @@ async function exportBackup() {
 function onTimeoutInput(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10)
   if (!Number.isNaN(v) && v > 0) setSettings({ defaultTimeoutMs: v })
-}
-function onFontSizeInput(e: Event) {
-  const v = parseInt((e.target as HTMLInputElement).value, 10)
-  if (!Number.isNaN(v) && v >= 11 && v <= 20) setSettings({ fontSize: v })
 }
 function onImportLimitInput(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10)
@@ -72,18 +69,6 @@ function onImportLimitInput(e: Event) {
         min="1"
         step="1000"
         @change="onTimeoutInput"
-      />
-    </div>
-
-    <div class="sp-sec">
-      <label class="sp-label">{{ L.settings.fontSize }}</label>
-      <input
-        class="input sp-select"
-        type="number"
-        :value="settings.fontSize"
-        min="11"
-        max="20"
-        @change="onFontSizeInput"
       />
     </div>
 

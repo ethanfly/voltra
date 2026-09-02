@@ -86,6 +86,16 @@ function doClearHistory() {
       </div>
     </aside>
     <Splitter axis="x" @resize="(d) => setSidebarWidth(uiState.sidebarWidth + d)" />
+
+    <!-- 清空历史确认弹窗（之前漏加，导致点击无反应） -->
+    <ConfirmDialog
+      v-if="confirmClearHistory"
+      :title="L.history.clear"
+      :message="L.history.clearConfirm"
+      :danger="true"
+      @confirm="doClearHistory"
+      @cancel="confirmClearHistory = false"
+    />
   </div>
   <button v-else class="expand-btn" :title="L.common.expand" @click="sidebarCollapsed = false">
     <PanelLeft :size="15" />

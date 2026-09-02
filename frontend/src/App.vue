@@ -15,6 +15,7 @@ import WsTimeline from './components/ws/WsTimeline.vue'
 import WsComposer from './components/ws/WsComposer.vue'
 import CodeGenDrawer from './components/codegen/CodeGenDrawer.vue'
 import SaveToDialog from './components/tree/SaveToDialog.vue'
+import Toast from './components/common/Toast.vue'
 import { startWsBridge } from './lib/ws-bridge'
 import { bootstrap } from './lib/persist'
 import { initZoomKeys } from './lib/zoom'
@@ -101,6 +102,7 @@ function onSplit(delta: number) {
     <StatusBar />
     <CodeGenDrawer />
     <SaveToDialog v-if="saveToTabId" :name="saveToTabName" @save="onSaveToConfirm" @close="saveToTabId = null" />
+    <Toast />
   </div>
 </template>
 

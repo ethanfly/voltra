@@ -4,7 +4,7 @@
 // {{变量}} 高亮（ENV-4/5）：已定义=品牌色、未定义=红色波浪线，title 悬浮当前值（secret 打码）；
 // 响应查看器传 var-highlight=false（响应体里的 `{{` 是合法文本，不应告警）
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { EditorView, keymap, Decoration } from '@codemirror/view'
+import { EditorView, keymap, Decoration, lineNumbers } from '@codemirror/view'
 import {
   EditorState,
   Compartment,
@@ -41,7 +41,8 @@ const props = withDefaults(defineProps<{
   readOnly?: boolean
   placeholder?: string
   varHighlight?: boolean
-}>(), { language: 'text', height: '100%', readOnly: false, placeholder: '', varHighlight: true })
+  lineNumbers?: boolean
+}>(), { language: 'text', height: '100%', readOnly: false, placeholder: '', varHighlight: true, lineNumbers: false })
 
 const emit = defineEmits<{ (e: 'update:modelValue', v: string): void }>()
 
@@ -164,6 +165,7 @@ function buildExtensions(): Extension[] {
   ]
   if (props.language !== 'text') exts.push(...langExt(props.language))
   if (props.varHighlight) exts.push(varField)
+  if (props.lineNumbers) exts.push(lineNumbers())
   return exts
 }
 

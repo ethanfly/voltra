@@ -12,7 +12,28 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/application/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * BindApp 在 main.go 里 application.New(...) 之后调用，
+ * 这样 DownloadRequest 才能拿到 app 实例弹出原生保存对话框
+ */
+export function BindApp(app: application$0.App | null): $CancellablePromise<void> {
+    return $Call.ByID(4036917809, app);
+}
+
+/**
+ * DownloadRequest 发送请求并把响应体直接流式写入用户选择的文件（二进制不进前端内存）。
+ * 流程：发送 → 从响应头 / URL 推导默认文件名 → 弹原生"保存文件"对话框 → 流式拷贝到所选路径。
+ * ctx 由 Wails 注入，前端取消时 ctx 取消、网络阶段随之中断（对话框已弹出后无法中途收回）。
+ */
+export function DownloadRequest(req: $models.HTTPRequest): $CancellablePromise<$models.DownloadResult> {
+    return $Call.ByID(15245746, req);
+}
 
 /**
  * SendRequest 发送请求。

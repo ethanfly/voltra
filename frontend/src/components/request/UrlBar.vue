@@ -5,7 +5,7 @@
 // {{变量}} 高亮（REQ-2/ENV-4）：镜像里渲染分段 span（已定义=品牌色，未定义=红色波浪线）；
 // 悬浮值（ENV-5）放输入框 title（镜像 pointer-events:none，无法独立悬浮）
 import { computed, ref } from 'vue'
-import { Save, Send, Loader2, X, FileTerminal, Code, MoreVertical } from 'lucide-vue-next'
+import { Save, Send, Download, Loader2, X, FileTerminal, Code, MoreVertical } from 'lucide-vue-next'
 import MethodPicker from './MethodPicker.vue'
 import CurlDialog from './CurlDialog.vue'
 import Dropdown from '../common/Dropdown.vue'
@@ -16,11 +16,12 @@ import { varMeta } from '../../stores/env'
 import { varTitle } from '../../lib/var-ui'
 import { openCodegen } from '../../stores/ui-state'
 
-const props = defineProps<{ request: Request; sending: boolean }>()
+const props = defineProps<{ request: Request; sending: boolean; downloading?: boolean }>()
 const emit = defineEmits<{
   (e: 'send'): void
   (e: 'cancel'): void
   (e: 'save'): void
+  (e: 'download'): void
 }>()
 
 const L = computed(() => t())
@@ -121,6 +122,16 @@ function applyCurl(req: Request) {
         </button>
       </template>
     </Dropdown>
+    <!-- 发送并下载：下载类接口（图片/视频/文件）走这里，Go 侧流式写盘 + 弹原生保存对话框 -->
+    <button
+      class="icon-btn ub-dl"
+      :title="L.request.sendDownload"
+      :disabled="sending || downloading"
+      @click="emit('download')"
+    >
+      <Loader2 v-if="downloading" :size="15" class="spin" />
+      <Download v-else :size="15" />
+    </button>
     <button v-if="sending" class="btn btn-danger ub-send" @click="emit('cancel')">
       <X :size="13" /> {{ L.request.cancel }}
     </button>

@@ -240,3 +240,42 @@ func readAll(t *testing.T, r interface{ Read([]byte) (int, error) }) string {
 	}
 	return sb.String()
 }
+
+func TestDefaultDownloadName(t *testing.T) {
+	cases := []struct {
+		cd   string
+		url  string
+		want string
+	}{
+		{`attachment; filename="report.pdf"`, "https://x.com/dl", "report.pdf"},
+		{`attachment; filename*=UTF-8''%E4%B8%AD%E6%96%87.pdf`, "https://x.com/dl", "中文.pdf"},
+		{`attachment; filename=evil/../../etc/passwd`, "https://x.com/dl", "passwd"}, // 路径穿越被 basename 挡住
+		{"", "https://x.com/files/video.mp4?dl=1", "video.mp4"},                       // 无 CD 回退 URL 末段
+		{"", "https://x.com/", "download.bin"},                                        // URL 无路径末段
+		{"", "https://x.com", "download.bin"},
+		{"inline", "https://x.com/a.png", "a.png"}, // 有 CD 但无 filename → 回退 URL
+	}
+	for _, c := range cases {
+		if got := defaultDownloadName(c.cd, c.url); got != c.want {
+			t.Errorf("defaultDownloadName(%q, %q) = %q, want %q", c.cd, c.url, got, c.want)
+		}
+	}
+}
+
+func TestSanitizeFilename(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"/a/b/c.txt", "c.txt"},
+		{`..\win\name.exe`, "name.exe"}, // Windows 分隔符在任意平台都要能剥掉
+		{"", "download.bin"},
+		{".", "download.bin"},
+		{"ok name.txt", "ok name.txt"},
+	}
+	for _, c := range cases {
+		if got := sanitizeFilename(c.in); got != c.want {
+			t.Errorf("sanitizeFilename(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

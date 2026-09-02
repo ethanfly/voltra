@@ -11,6 +11,7 @@ export {
 };
 
 export type {
+    DownloadResult,
     FormField,
     GraphQLBody,
     HTTPRequest,

@@ -55,6 +55,8 @@ export const zhCN = {
     themeDark: '深色',
     themeSystem: '跟随系统',
     settings: '设置',
+    zoomLabel: '缩放（Cmd/Ctrl + = / - / 0）',
+    zoomReset: '重置为 100%',
   },
 
   window: {
@@ -85,6 +87,7 @@ export const zhCN = {
     searchEmpty: '没有匹配的接口',
     noProjectHint: '先新建一个项目，再添加接口',
     generateCode: '生成代码',
+    parsing: '正在解析集合…',
   },
 
   request: {
@@ -94,6 +97,7 @@ export const zhCN = {
     generateCode: '生成代码',
     save: '保存',
     send: '发送',
+    sendDownload: '发送并下载',
     cancel: '取消',
     tabs: {
       params: 'Params',
@@ -298,6 +302,15 @@ export const zhCN = {
     enabled: '启用',
     noEnv: '无环境',
     undefinedVar: '未定义',
+    createEnv: '创建环境',
+    createEnvHint: '当前为「无环境」，环境级变量不可用。创建第一个环境后即可在这里编辑。',
+    manageInSidebar: '在侧栏管理环境',
+  },
+
+  download: {
+    saved: '已保存到',
+    cancelled: '已取消保存',
+    failed: '下载失败',
   },
 
   settings: {
@@ -305,7 +318,6 @@ export const zhCN = {
     theme: '主题',
     language: '语言',
     defaultTimeout: '默认请求超时（ms）',
-    fontSize: '字体大小',
     importLimit: '导入文件上限（MB）',
     importLimitHint: '导入 Postman 集合 / 环境时，允许读取的最大文件大小。数值越大越可能占用更多内存，导入超大文件时应用可能变慢或无响应。',
     autoCompleteScheme: '自动补全 URL 协议',
@@ -357,6 +369,8 @@ export const zhCN = {
     client: '客户端',
     rawVars: '使用变量原样（{{token}}）',
     replaceEnv: '用当前环境真实值替换',
+    modeRaw: '变量原样',
+    modeReal: '真实值',
     noRequest: '没有可生成代码的 HTTP 请求',
   },
 } as const

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // 接口集合面板：搜索（平铺+面包屑+高亮）/ 树（仅渲染展开子级）/
 // 集合行（内联重命名·拖拽排序·右键）/ 空状态三按钮
-import { computed, ref } from 'vue'
-import { Search, Plus, FilePlus2, FolderPlus, Trash2, Pencil, ChevronDown, ChevronRight, Upload, Download } from 'lucide-vue-next'
+import { computed, ref, nextTick } from 'vue'
+import { Search, Plus, FilePlus2, FolderPlus, Trash2, Pencil, ChevronDown, ChevronRight, Upload, Download, Loader2 } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
@@ -27,11 +27,12 @@ import { settings } from '../../stores/settings'
 import { parsePostman, type PostmanImportResult } from '../../lib/postman'
 import { exportPostmanCollection } from '../../lib/postman-export'
 import {
-  dragNodeId,
-  dragIsCollection,
   dropTarget,
-  resetDnd,
-  type DropPos,
+  dragGhost,
+  registerRow,
+  unregisterRow,
+  startRowDrag,
+  wasJustDragged,
 } from './dnd-state'
 import { scheduleSave } from '../../lib/persist'
 import { nodeIcon } from '../../lib/tree-icons'
@@ -121,6 +122,11 @@ function hoverNewFolder(c: Collection) {
   setExpanded(c.id, true)
   externalRename.value = f.id
 }
+// 集合行点击：拖拽刚结束时吞掉落点上的点击，避免误展开/折叠
+function onCollHeadClick(c: Collection) {
+  if (wasJustDragged()) return
+  toggleExpanded(c.id)
+}
 
 // ---------- 集合行：内联重命名 ----------
 const renamingCollId = ref<ID | null>(null)
@@ -138,48 +144,7 @@ function commitRenameColl(c: Collection) {
   if (v && v !== c.name) renameCollection(c.id, v)
 }
 
-// ---------- 集合拖拽排序（仅集合↔集合） ----------
-function onCollDragStart(e: DragEvent, id: ID) {
-  dragNodeId.value = id
-  dragIsCollection.value = true
-  if (!e.dataTransfer) return
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', id)
-}
-function onCollDragOver(e: DragEvent, id: ID) {
-  if (!dragNodeId.value || !dragIsCollection.value || dragNodeId.value === id) return
-  if (!p.value?.collections.some((c) => c.id === id)) return
-  e.preventDefault()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const pos: DropPos = (e.clientY - rect.top) / rect.height < 0.5 ? 'before' : 'after'
-  if (dropTarget.value?.id !== id || dropTarget.value?.pos !== pos) {
-    dropTarget.value = { id, pos }
-  }
-}
-function onCollDrop(e: DragEvent, id: ID) {
-  e.preventDefault()
-  const dragId = dragNodeId.value
-  const pos = dropTarget.value?.id === id ? dropTarget.value.pos : null
-  dragNodeId.value = null
-  dragIsCollection.value = false
-  dropTarget.value = null
-  if (!dragId || !pos) return
-  reorderCollections(dragId, id, pos)
-}
-function reorderCollections(dragId: ID, targetId: ID, pos: DropPos) {
-  const pr = currentProject.value
-  if (!pr) return
-  const items = pr.collections
-  const from = items.findIndex((c) => c.id === dragId)
-  if (from < 0) return
-  const [c] = items.splice(from, 1)
-  const t = items.findIndex((x) => x.id === targetId)
-  if (t < 0) return
-  items.splice(t + (pos === 'before' ? 0 : 1), 0, c)
-  pr.updatedAt = Date.now()
-  scheduleSave('projects')
-}
+// ---------- 集合拖拽排序（鼠标拖拽，主循环见 dnd-state.ts，集合↔集合） ----------
 
 // ---------- 右键菜单 ----------
 const menu = ref<{ node: Collection | TreeNode; x: number; y: number } | null>(null)
@@ -268,12 +233,16 @@ function doDelete() {
 // ---------- 导入 / 导出 ----------
 const pendingImport = ref<Extract<PostmanImportResult, { ok: true }> | null>(null)
 const importError = ref<string | null>(null)
+const importing = ref(false)
 
 async function onImport() {
   if (!p.value) return
   try {
     const path = await StorageService.PickFile()
     if (!path) return
+    // 解析大集合是同步阻塞（数秒）：先置 loading 并让出一帧，遮罩才能先画出来
+    importing.value = true
+    await nextTick()
     const text = await StorageService.ReadFileBounded(path, settings.importLimitMB * 1024 * 1024)
     const r = parsePostman(text)
     if (!r.ok) {
@@ -283,6 +252,8 @@ async function onImport() {
     pendingImport.value = r
   } catch (e) {
     importError.value = String(e)
+  } finally {
+    importing.value = false
   }
 }
 
@@ -388,16 +359,16 @@ async function onExportProject() {
               'drop-after': dropTarget?.id === c.id && dropTarget.pos === 'after',
             },
           ]"
-          :draggable="!renamingCollId"
-          @dragstart="onCollDragStart($event, c.id)"
-          @dragover="onCollDragOver($event, c.id)"
-          @drop="onCollDrop($event, c.id)"
-          @dragend="resetDnd"
         >
-          <div class="coll-head" @contextmenu="onCollMenu($event, c)">
+          <div
+            class="coll-head"
+            :ref="(el) => { if (el) registerRow(c.id, el as HTMLElement, 'collection'); else unregisterRow(c.id) }"
+            @mousedown="startRowDrag($event, c.id, 'collection', c.name)"
+            @contextmenu="onCollMenu($event, c)"
+          >
             <button class="tn-chevron" :class="{ open: isExpanded(c.id) }" @click.stop="toggleExpanded(c.id)">
-              <ChevronDown v-if="isExpanded(c.id)" :size="12" />
-              <ChevronRight v-else :size="12" />
+              <ChevronDown v-if="isExpanded(c.id)" :size="15" />
+              <ChevronRight v-else :size="15" />
             </button>
             <component :is="nodeIcon(c)" :size="13" class="coll-ico" />
             <input
@@ -414,7 +385,7 @@ async function onExportProject() {
               v-else
               class="tn-name"
               :title="c.name"
-              @click="toggleExpanded(c.id)"
+              @click="onCollHeadClick(c)"
               @dblclick="startRenameColl(c)"
             >
               {{ c.name }}
@@ -487,6 +458,21 @@ async function onExportProject() {
       @confirm="importError = null"
       @cancel="importError = null"
     />
+
+    <!-- 拖拽幽灵（跟随光标的标签，鼠标拖拽的"被拖项"替身） -->
+    <div
+      v-if="dragGhost"
+      class="cp-drag-ghost"
+      :style="{ left: dragGhost.x + 'px', top: dragGhost.y + 'px' }"
+    >{{ dragGhost.name }}</div>
+
+    <!-- 导入解析中（同步解析大集合会阻塞数秒，给个遮罩提示） -->
+    <div v-if="importing" class="cp-import-mask">
+      <div class="cp-import-card">
+        <Loader2 :size="20" class="spin" />
+        <p>{{ L.tree.parsing }}</p>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -629,12 +615,12 @@ async function onExportProject() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -689,5 +675,60 @@ async function onExportProject() {
 .coll-act-del:hover {
   background: var(--error-weak);
   color: var(--error);
+}
+/* 拖拽幽灵标签：position:fixed 跟随光标（transform 偏移避免挡住指针） */
+.cp-drag-ghost {
+  position: fixed;
+  z-index: 400;
+  pointer-events: none;
+  transform: translate(14px, 14px);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-active);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+/* 导入解析遮罩 */
+.cp-import-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.32);
+}
+.cp-import-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+  padding: 18px 24px;
+  background: var(--bg-elev);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+  color: var(--text);
+}
+.cp-import-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.cp-import-card .spin {
+  color: var(--brand);
+  animation: cp-spin 0.9s linear infinite;
+}
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

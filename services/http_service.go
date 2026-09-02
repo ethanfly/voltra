@@ -17,6 +17,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -25,11 +26,23 @@ import (
 	"unicode/utf8"
 )
 
+import (
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
+
 // HTTPService 负责发送普通 HTTP 请求，是接口调试的核心能力
-type HTTPService struct{}
+type HTTPService struct {
+	app *application.App // 发送并下载时弹原生"保存文件"对话框用，main.go 里 BindApp 注入
+}
 
 func NewHTTPService() *HTTPService {
 	return &HTTPService{}
+}
+
+// BindApp 在 main.go 里 application.New(...) 之后调用，
+// 这样 DownloadRequest 才能拿到 app 实例弹出原生保存对话框
+func (h *HTTPService) BindApp(app *application.App) {
+	h.app = app
 }
 
 // KVPair 用于 Header / Query 等键值对，Enabled 对应前端"启用/禁用某一行"的勾选框
@@ -141,36 +154,7 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 		httpReq.Header.Set("Content-Type", contentTypeHint)
 	}
 
-	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
-	if req.TimeoutMs <= 0 {
-		timeout = 30 * time.Second
-	}
-	maxRedirects := req.MaxRedirects
-	if maxRedirects <= 0 {
-		maxRedirects = 10
-	}
-
-	client := &http.Client{Timeout: timeout}
-	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
-		if !req.FollowRedirects {
-			return http.ErrUseLastResponse
-		}
-		if len(via) > maxRedirects {
-			return fmt.Errorf("重定向次数超过上限 %d", maxRedirects)
-		}
-		return nil
-	}
-	if req.SendCookies {
-		jar, err := cookiejar.New(nil)
-		if err == nil {
-			client.Jar = jar
-		}
-	}
-	if req.InsecureSkipTlsVerify {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-	}
+	client := buildClient(req)
 
 	// httptrace 采集 DNS / TCP / TLS / TTFB / 下载 各阶段耗时
 	tt := &traceTimer{}
@@ -249,6 +233,229 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 		Truncated:    truncated,
 		Timings:      tt.timings(start),
 	}, nil
+}
+
+// buildClient 按请求设置构造 http.Client（超时 / 重定向 / Cookie / TLS），
+// SendRequest 与 DownloadRequest 共用，保证两条路径行为一致
+func buildClient(req HTTPRequest) *http.Client {
+	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
+	if req.TimeoutMs <= 0 {
+		timeout = 30 * time.Second
+	}
+	maxRedirects := req.MaxRedirects
+	if maxRedirects <= 0 {
+		maxRedirects = 10
+	}
+
+	client := &http.Client{Timeout: timeout}
+	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
+		if !req.FollowRedirects {
+			return http.ErrUseLastResponse
+		}
+		if len(via) > maxRedirects {
+			return fmt.Errorf("重定向次数超过上限 %d", maxRedirects)
+		}
+		return nil
+	}
+	if req.SendCookies {
+		if jar, err := cookiejar.New(nil); err == nil {
+			client.Jar = jar
+		}
+	}
+	if req.InsecureSkipTlsVerify {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+	return client
+}
+
+// DownloadResult 发送并下载的结果。Path 为空且 Cancelled=true 表示用户在保存对话框点了取消
+type DownloadResult struct {
+	Path        string `json:"path"`
+	Cancelled   bool   `json:"cancelled"`
+	SizeBytes   int    `json:"sizeBytes"`
+	DurationMs  int64  `json:"durationMs"`
+	ContentType string `json:"contentType"`
+	StatusCode  int    `json:"statusCode"`
+	Status      string `json:"status"`
+	Error       string `json:"error,omitempty"`
+	ErrorKind   string `json:"errorKind,omitempty"`
+}
+
+// DownloadRequest 发送请求并把响应体直接流式写入用户选择的文件（二进制不进前端内存）。
+// 流程：发送 → 从响应头 / URL 推导默认文件名 → 弹原生"保存文件"对话框 → 流式拷贝到所选路径。
+// ctx 由 Wails 注入，前端取消时 ctx 取消、网络阶段随之中断（对话框已弹出后无法中途收回）。
+func (h *HTTPService) DownloadRequest(ctx context.Context, req HTTPRequest) (DownloadResult, error) {
+	start := time.Now()
+	if h.app == nil {
+		return DownloadResult{Error: "文件对话框暂不可用", ErrorKind: "other", DurationMs: time.Since(start).Milliseconds()}, nil
+	}
+
+	normalized, err := normalizeURL(req.URL)
+	if err != nil {
+		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
+	}
+	fullURL, err := buildURLWithQuery(normalized, req.Query)
+	if err != nil {
+		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
+	}
+	bodyReader, contentTypeHint, err := buildBody(req)
+	if err != nil {
+		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, strings.ToUpper(req.Method), fullURL, bodyReader)
+	if err != nil {
+		return DownloadResult{Error: err.Error(), ErrorKind: "bad_url", DurationMs: time.Since(start).Milliseconds()}, nil
+	}
+	for _, hd := range req.Headers {
+		if hd.Enabled && hd.Key != "" {
+			httpReq.Header.Set(hd.Key, hd.Value)
+		}
+	}
+	if contentTypeHint != "" && httpReq.Header.Get("Content-Type") == "" {
+		httpReq.Header.Set("Content-Type", contentTypeHint)
+	}
+
+	resp, err := buildClient(req).Do(httpReq)
+	if err != nil {
+		return DownloadResult{
+			Error:      err.Error(),
+			ErrorKind:  classifyError(err),
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+	defer resp.Body.Close()
+
+	// 默认文件名：Content-Disposition 优先，其次 URL 末段，最后 download.bin
+	defaultName := defaultDownloadName(resp.Header.Get("Content-Disposition"), fullURL)
+
+	// 弹保存对话框（阻塞，用户选择目录与文件名）。取消 → 丢弃响应体
+	savePath, err := h.app.Dialog.SaveFile().
+		SetMessage("选择文件保存位置").
+		SetFilename(defaultName).
+		PromptForSingleSelection()
+	if err != nil {
+		return DownloadResult{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			Error:      err.Error(),
+			ErrorKind:  "other",
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+	if savePath == "" {
+		return DownloadResult{
+			Cancelled:  true,
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+
+	fh, err := os.Create(savePath)
+	if err != nil {
+		return DownloadResult{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			Error:      fmt.Sprintf("创建文件失败: %v", err),
+			ErrorKind:  "other",
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+	n, copyErr := io.Copy(fh, resp.Body)
+	closeErr := fh.Close()
+	if copyErr != nil {
+		return DownloadResult{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			SizeBytes:  int(n),
+			Error:      copyErr.Error(),
+			ErrorKind:  classifyError(copyErr),
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+	if closeErr != nil {
+		return DownloadResult{
+			StatusCode: resp.StatusCode,
+			Status:     resp.Status,
+			SizeBytes:  int(n),
+			Error:      closeErr.Error(),
+			ErrorKind:  "other",
+			DurationMs: time.Since(start).Milliseconds(),
+		}, nil
+	}
+
+	return DownloadResult{
+		Path:        savePath,
+		SizeBytes:   int(n),
+		ContentType: resp.Header.Get("Content-Type"),
+		StatusCode:  resp.StatusCode,
+		Status:      resp.Status,
+		DurationMs:  time.Since(start).Milliseconds(),
+	}, nil
+}
+
+// defaultDownloadName 推导建议保存文件名：
+// 优先 Content-Disposition 的 filename（含 filename*=UTF-8''... 形式），
+// 其次 URL 路径末段，都没有则 download.bin
+func defaultDownloadName(contentDisposition, fullURL string) string {
+	if cd := strings.TrimSpace(contentDisposition); cd != "" {
+		if i := strings.IndexByte(cd, ';'); i >= 0 {
+			for _, part := range strings.Split(cd[i+1:], ";") {
+				part = strings.TrimSpace(part)
+				lower := strings.ToLower(part)
+				if strings.HasPrefix(lower, "filename*=") {
+					v := part[len("filename*="):]
+					// 形如 UTF-8''%E4%B8%AD%E6%96%87.pdf：取两个单引号之间的百分号编码
+					if q := strings.IndexByte(v, '\''); q >= 0 {
+						v = v[q+1:]
+						if q2 := strings.IndexByte(v, '\''); q2 >= 0 {
+							v = v[q2+1:]
+						}
+						if u, err := url.QueryUnescape(v); err == nil && u != "" {
+							return sanitizeFilename(u)
+						}
+					}
+				} else if strings.HasPrefix(lower, "filename=") {
+					v := strings.Trim(strings.TrimSpace(part[len("filename="):]), `"`)
+					if v != "" {
+						return sanitizeFilename(v)
+					}
+				}
+			}
+		}
+	}
+	if u, err := url.Parse(fullURL); err == nil {
+		base := filepath.Base(u.Path)
+		if base != "" && base != "." && base != "/" {
+			return sanitizeFilename(base)
+		}
+	}
+	return "download.bin"
+}
+
+// sanitizeFilename 只保留 basename 并把路径分隔符替换成下划线，避免跨目录写入。
+// 用 LastIndexByte 同时找 / 和 \（filepath.Base 只认当前 OS 的分隔符，跨平台不可靠）
+func sanitizeFilename(s string) string {
+	i := strings.LastIndexByte(s, '/')
+	if j := strings.LastIndexByte(s, '\\'); j > i {
+		i = j
+	}
+	if i >= 0 {
+		s = s[i+1:]
+	}
+	s = strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == 0 {
+			return '_'
+		}
+		return r
+	}, s)
+	if s == "" || s == "." {
+		return "download.bin"
+	}
+	return s
 }
 
 func errorResponse(err error, kind string, elapsed time.Duration) HTTPResponse {

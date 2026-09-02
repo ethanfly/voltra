@@ -286,6 +286,22 @@ export function moveNode(dragId: ID, targetId: ID, pos: 'before' | 'after' | 'in
   return true
 }
 
+/** 顶层集合排序（鼠标拖拽用）：pos=before|after；拖到自身返回 false */
+export function reorderCollections(dragId: ID, targetId: ID, pos: 'before' | 'after'): boolean {
+  const p = currentProject.value
+  if (!p || dragId === targetId) return false
+  const items = p.collections
+  const from = items.findIndex((c) => c.id === dragId)
+  if (from < 0) return false
+  const [c] = items.splice(from, 1)
+  const t = items.findIndex((x) => x.id === targetId)
+  if (t < 0) return false
+  items.splice(t + (pos === 'before' ? 0 : 1), 0, c)
+  touch(p)
+  scheduleSave('projects')
+  return true
+}
+
 // ---------- 搜索 ----------
 
 export interface TreeSearchHit {

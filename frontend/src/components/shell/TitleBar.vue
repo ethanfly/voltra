@@ -3,8 +3,9 @@
 // 无边框窗口：整条顶栏是可拖拽区（--wails-draggable），双键点击切换最大化；
 // 内部所有按钮/输入框显式 no-drag，避免按下按钮时拖动窗口
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { Zap, ChevronDown, Plus, Trash2, Pencil, Settings, Sun, Moon, Monitor, Layers, Minus, Square, Copy, X } from 'lucide-vue-next'
+import { Zap, ChevronDown, Plus, Trash2, Pencil, Settings, Sun, Moon, Monitor, Layers, Minus, Square, Copy, X, ZoomIn, RotateCcw } from 'lucide-vue-next'
 import { Window, Events } from '@wailsio/runtime'
+import { zoomPercent, setZoom, resetZoom } from '../../lib/zoom'
 import Dropdown from '../common/Dropdown.vue'
 import Modal from '../common/Modal.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
@@ -264,6 +265,36 @@ async function onClose() {
       </template>
     </Dropdown>
 
+    <!-- 缩放：pill 显示当前百分比，点击展开滑条（50–150%）；与 Cmd/Ctrl ± 快捷键共用同一值 -->
+    <Dropdown align="end">
+      <template #trigger="{ open }">
+        <button :class="['tb-select', 'tb-select-zoom', { open }]" :title="L.titleBar.zoomLabel">
+          <ZoomIn :size="14" />
+          <span class="tb-zoom-pct">{{ zoomPercent }}%</span>
+        </button>
+      </template>
+      <template #default>
+        <div class="zoom-pop">
+          <div class="zoom-pop-head">
+            <span>{{ L.titleBar.zoomLabel }}</span>
+            <button class="zoom-reset" :title="L.titleBar.zoomReset" @click="resetZoom()">
+              <RotateCcw :size="13" /> 100%
+            </button>
+          </div>
+          <input
+            class="zoom-slider"
+            type="range"
+            min="50"
+            max="150"
+            step="5"
+            :value="zoomPercent"
+            @input="setZoom(Number(($event.target as HTMLInputElement).value) / 100)"
+          />
+          <div class="zoom-pop-scale"><span>50%</span><span>100%</span><span>150%</span></div>
+        </div>
+      </template>
+    </Dropdown>
+
     <button class="icon-btn" :title="L.titleBar.settings" @click="activePanel = 'settings'">
       <Settings :size="15" />
     </button>
@@ -405,6 +436,59 @@ async function onClose() {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 150px;
+}
+/* 缩放 pill：图标 + 百分比；点击展开滑条 */
+.tb-select-zoom {
+  min-width: 60px;
+  justify-content: center;
+}
+.tb-zoom-pct {
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+.zoom-pop {
+  width: 200px;
+  padding: 2px;
+}
+.zoom-pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 6px 6px 4px;
+}
+.zoom-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.zoom-reset:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.zoom-slider {
+  width: 100%;
+  accent-color: var(--brand);
+  cursor: pointer;
+  margin: 6px 4px 2px;
+}
+.zoom-pop-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 0 4px 2px;
 }
 .spacer {
   flex: 1;

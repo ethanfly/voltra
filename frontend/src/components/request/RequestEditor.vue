@@ -12,7 +12,8 @@ import ScriptsTab from './ScriptsTab.vue'
 import SettingsTab from './SettingsTab.vue'
 import { tabs, markDirty, responses, saveTab } from '../../stores/tabs'
 import { scheduleSave } from '../../lib/persist'
-import { sendRequest, cancelRequest, isSending } from '../../lib/send'
+import { sendRequest, cancelRequest, isSending, downloadRequest, isDownloading } from '../../lib/send'
+import { toast } from '../../stores/toast'
 import type { LiveTab } from '../../stores/tabs'
 import type { ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
@@ -85,6 +86,25 @@ function onCancel() {
   cancelRequest(props.tab.tabId)
 }
 
+// ---------- 发送并下载（下载类接口：响应由 Go 侧流式写盘 + 原生保存对话框） ----------
+const downloading = computed(() => isDownloading(props.tab.tabId))
+
+async function onDownload() {
+  if (sending.value || downloading.value) return
+  try {
+    const r = await downloadRequest(props.tab.tabId)
+    if (r.cancelled) {
+      toast('info', L.value.download.cancelled, 2000)
+    } else if (r.error) {
+      toast('error', `${L.value.download.failed}：${r.error}`)
+    } else {
+      toast('success', `${L.value.download.saved} ${r.path}`)
+    }
+  } catch (e) {
+    toast('error', `${L.value.download.failed}：${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
 // ---------- 保存（Cmd+S / 按钮；逻辑在 tabs store，标签右键菜单共用） ----------
 function onSave() {
   saveTab(props.tab.tabId)
@@ -107,9 +127,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
     <UrlBar
       :request="tab.request"
       :sending="sending"
+      :downloading="downloading"
       @send="onSend"
       @cancel="onCancel"
       @save="onSave"
+      @download="onDownload"
     />
 
     <div class="re-tabs">

@@ -162,7 +162,8 @@ async function onExportEnv() {
       <!-- 变量编辑：侧栏 240–480px 塞不下 键/初始值/当前值/启用 四列表格，
            整页在编辑区打开（用户实测反馈"还是很挤"） -->
       <div class="ep-page">
-        <button class="ep-openpage" @click="openVarPage()">
+        <!-- 无环境时禁用（不隐藏，避免页面空置）：环境级变量此时不可编辑，整页只会有空的环境区 -->
+        <button class="ep-openpage" :disabled="!currentEnv" @click="openVarPage()">
           <PanelRightOpen :size="15" />
           <span>{{ L.env.editInPage }}</span>
         </button>
@@ -269,6 +270,14 @@ async function onExportEnv() {
 .ep-openpage:hover {
   background: var(--brand-weak);
   border-color: var(--brand);
+}
+.ep-openpage:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.ep-openpage:disabled:hover {
+  background: var(--bg-elev);
+  border-color: var(--border-strong);
 }
 .ep-page-hint {
   margin: 8px 2px 0;

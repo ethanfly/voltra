@@ -4,7 +4,7 @@
 // ============================================================
 
 // 基础类型直接复用 wails3 生成的绑定（字段名 = Go json tag）
-export type { KVPair, FormField, GraphQLBody, HTTPResponse, WSConnectOptions } from '../../bindings/voltra/services'
+export type { KVPair, FormField, GraphQLBody, HTTPResponse, DownloadResult, WSConnectOptions } from '../../bindings/voltra/services'
 import type {
   KVPair,
   FormField,
@@ -126,7 +126,6 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   language: 'zh' | 'en'
   defaultTimeoutMs: number
-  fontSize: number
   autoCompleteScheme: boolean // SET-4：是否自动补全 URL scheme
   defaultScheme: 'http' | 'https'
   historyLimit: number // HIS-5，默认 500
@@ -231,7 +230,6 @@ export function defaultSettings(): AppSettings {
     theme: 'system',
     language: 'zh',
     defaultTimeoutMs: 30000,
-    fontSize: 13,
     autoCompleteScheme: true,
     defaultScheme: 'https',
     historyLimit: 500,

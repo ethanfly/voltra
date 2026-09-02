@@ -25,6 +25,8 @@ export const tabs = reactive({
 export const responses = reactive<Record<ID, HTTPResponse | null>>({})
 export const wsConnIds = reactive<Record<ID, string>>({})
 export const inFlight = reactive<Record<ID, { cancel: () => void } | null>>({})
+// 发送并下载：独立于 inFlight（下载含原生保存对话框，UI 单独显示下载中/可取消）
+export const downloads = reactive<Record<ID, { cancel: () => void } | null>>({})
 
 /** ws 日志条目：消息帧 / 系统状态行（连接/重连/断开） */
 export type WsLogItem =
@@ -100,6 +102,7 @@ export function closeTab(tabId: ID) {
   delete wsLogs[tabId]
   delete wsStatuses[tabId]
   delete inFlight[tabId]
+  delete downloads[tabId]
   if (wasActive) {
     tabs.activeTabId = tabs.tabs[Math.min(i, tabs.tabs.length - 1)]?.tabId ?? null
   }
