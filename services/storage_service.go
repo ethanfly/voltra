@@ -196,6 +196,26 @@ func (s *StorageService) ReadFile(path string) (string, error) {
 	return string(content), nil
 }
 
+// ReadFileBounded 同 ReadFile，但字节上限由调用方指定（导入文件用，上限可在设置里调整）。
+// maxBytes<=0 时回退到默认 30MB。相比固定上限的 ReadFile，这里把"允许多大"交给用户。
+func (s *StorageService) ReadFileBounded(path string, maxBytes int64) (string, error) {
+	if maxBytes <= 0 {
+		maxBytes = 30 << 20
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %w", err)
+	}
+	if info.Size() > maxBytes {
+		return "", fmt.Errorf("文件过大（超过 %dMB 上限）: %s", maxBytes>>20, path)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %w", err)
+	}
+	return string(content), nil
+}
+
 // SaveFile 弹出原生"保存文件"对话框并把 data 写入所选路径，
 // defaultName 为建议文件名（含扩展名）。
 // 返回值：成功 → (所选路径, nil)；用户取消 → ("", nil)；失败 → ("", err)

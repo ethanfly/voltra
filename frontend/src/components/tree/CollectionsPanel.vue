@@ -23,6 +23,7 @@ import {
 import { openRequest } from '../../stores/tabs'
 import { setExpanded, toggleExpanded, isExpanded, openCodegen } from '../../stores/ui-state'
 import { StorageService } from '../../api/backend'
+import { settings } from '../../stores/settings'
 import { parsePostman, type PostmanImportResult } from '../../lib/postman'
 import { exportPostmanCollection } from '../../lib/postman-export'
 import {
@@ -273,7 +274,7 @@ async function onImport() {
   try {
     const path = await StorageService.PickFile()
     if (!path) return
-    const text = await StorageService.ReadFile(path)
+    const text = await StorageService.ReadFileBounded(path, settings.importLimitMB * 1024 * 1024)
     const r = parsePostman(text)
     if (!r.ok) {
       importError.value = r.error

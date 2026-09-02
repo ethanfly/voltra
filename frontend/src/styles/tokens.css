@@ -139,11 +139,12 @@ body,
   height: 100%;
 }
 
-/* 页面缩放（lib/zoom.ts 维护 --app-zoom）：zoom 让布局盒按 1/zoom 收缩重排，
+/* 缩放 = 页面缩放（Cmd+=，lib/zoom.ts 维护 --app-zoom）× 字体大小（设置，
+   stores/settings.ts 维护 --font-zoom）。zoom 让布局盒按 1/zoom 收缩重排，
    放大后整页流式适配窗口，不出现页面级滚动条（Wails webview 的 magnification
    是纯渲染放大不重排，已弃用） */
 #app {
-  zoom: var(--app-zoom, 1);
+  zoom: calc(var(--font-zoom, 1) * var(--app-zoom, 1));
 }
 
 body {

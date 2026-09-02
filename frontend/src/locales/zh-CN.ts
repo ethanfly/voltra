@@ -152,6 +152,7 @@ export const zhCN = {
 
   response: {
     empty: '发送请求后，响应会展示在这里',
+    loading: '请求中，请稍候…',
     status: '状态',
     time: '耗时',
     size: '大小',
@@ -305,6 +306,8 @@ export const zhCN = {
     language: '语言',
     defaultTimeout: '默认请求超时（ms）',
     fontSize: '字体大小',
+    importLimit: '导入文件上限（MB）',
+    importLimitHint: '导入 Postman 集合 / 环境时，允许读取的最大文件大小。数值越大越可能占用更多内存，导入超大文件时应用可能变慢或无响应。',
     autoCompleteScheme: '自动补全 URL 协议',
     defaultScheme: '默认补全为',
     dataDir: '数据目录',
@@ -316,6 +319,11 @@ export const zhCN = {
   tabs: {
     unsavedDot: '未保存的标签',
     confirmCloseDirty: '该标签有未保存的修改，确定关闭吗？',
+    closeCurrent: '关闭当前标签',
+    closeLeft: '关闭左侧标签',
+    closeRight: '关闭右侧标签',
+    closeOthers: '关闭其他标签',
+    copyRequest: '复制请求',
   },
 
   dialog: {
@@ -324,6 +332,7 @@ export const zhCN = {
     namePlaceholder: '名称',
     projectNew: '新建项目',
     projectNewPlaceholder: '项目名称',
+    projectRename: '重命名项目',
     projectDeleteConfirm: '删除项目将同时删除其中的所有接口、环境和变量，确定删除吗？',
     importPreview: '导入预览',
     importSkipped: '项已跳过',

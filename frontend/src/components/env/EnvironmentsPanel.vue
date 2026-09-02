@@ -16,6 +16,7 @@ import {
 import { currentProject } from '../../stores/workspace'
 import { openVarPage } from '../../stores/ui-state'
 import { StorageService } from '../../api/backend'
+import { settings } from '../../stores/settings'
 import { parsePostmanEnvironment } from '../../lib/postman'
 import { exportPostmanEnvironments } from '../../lib/postman-export'
 import { scheduleSave } from '../../lib/persist'
@@ -73,7 +74,7 @@ async function onImportEnv() {
   try {
     const path = await StorageService.PickFile()
     if (!path) return
-    const text = await StorageService.ReadFile(path)
+    const text = await StorageService.ReadFileBounded(path, settings.importLimitMB * 1024 * 1024)
     const r = parsePostmanEnvironment(text)
     if (!r.ok) {
       envError.value = r.error

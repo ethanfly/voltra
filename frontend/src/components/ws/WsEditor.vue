@@ -4,16 +4,12 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { Save, Loader2 } from 'lucide-vue-next'
 import KvEditor from '../common/KvEditor.vue'
-import SaveToDialog from '../tree/SaveToDialog.vue'
 import { WSService } from '../../api/backend'
-import { tabs, wsConnIds, wsStatuses, wsLogs, markDirty, markSaved } from '../../stores/tabs'
+import { wsConnIds, wsStatuses, wsLogs, markDirty, saveTab } from '../../stores/tabs'
 import { resolveAll } from '../../stores/env'
 import { mergedHeaders } from '../../lib/send'
-import { flushNow, scheduleSave } from '../../lib/persist'
+import { scheduleSave } from '../../lib/persist'
 import { missingIn, varTitle } from '../../lib/var-ui'
-import { currentProject, findNode, addRequest } from '../../stores/workspace'
-import { uid, cloneDeep } from '../../types/models'
-import type { ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 import type { LiveTab } from '../../stores/tabs'
 
@@ -102,33 +98,8 @@ watch(
   { deep: true },
 )
 
-const showSaveTo = ref(false)
 function onSave() {
-  if (props.tab.savedInTree) {
-    void flushNow('projects').then(() => markSaved(props.tab.tabId))
-  } else {
-    showSaveTo.value = true
-  }
-}
-function doSaveTo(name: string, targetId: ID) {
-  const p = currentProject.value
-  if (!p) return
-  let target = p.collections.find((c) => c.id === targetId) ?? null
-  if (!target) {
-    const n = findNode(p, targetId)
-    if (n && n.kind !== 'request') target = n
-  }
-  if (!target) return
-  const clone = cloneDeep(props.tab.request)
-  clone.id = uid()
-  clone.name = name
-  const node = addRequest(target, clone)
-  const t = tabs.tabs.find((x) => x.tabId === props.tab.tabId)
-  if (!t) return
-  t.request = node
-  t.savedInTree = true
-  markSaved(t.tabId)
-  showSaveTo.value = false
+  saveTab(props.tab.tabId)
 }
 
 // Cmd+S（仅 ws 标签激活时本组件挂载，捕获阶段拦截 CM6/输入框默认行为）
@@ -187,8 +158,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
       <div class="we-sec">{{ L.ws.handshakeHeaders }}</div>
       <KvEditor :model-value="tab.request.headers" :description="true" />
     </div>
-
-    <SaveToDialog v-if="showSaveTo" :name="tab.request.name" @save="doSaveTo" @close="showSaveTo = false" />
   </div>
 </template>
 

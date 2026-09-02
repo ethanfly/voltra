@@ -34,6 +34,10 @@ function onFontSizeInput(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10)
   if (!Number.isNaN(v) && v >= 11 && v <= 20) setSettings({ fontSize: v })
 }
+function onImportLimitInput(e: Event) {
+  const v = parseInt((e.target as HTMLInputElement).value, 10)
+  if (!Number.isNaN(v) && v >= 1 && v <= 500) setSettings({ importLimitMB: v })
+}
 </script>
 
 <template>
@@ -81,6 +85,20 @@ function onFontSizeInput(e: Event) {
         max="20"
         @change="onFontSizeInput"
       />
+    </div>
+
+    <div class="sp-sec">
+      <label class="sp-label">{{ L.settings.importLimit }}</label>
+      <input
+        class="input sp-select"
+        type="number"
+        :value="settings.importLimitMB"
+        min="1"
+        max="500"
+        step="1"
+        @change="onImportLimitInput"
+      />
+      <div class="sp-hint">{{ L.settings.importLimitHint }}</div>
     </div>
 
     <div class="sp-sec sp-check-sec">
@@ -136,6 +154,11 @@ function onFontSizeInput(e: Event) {
   width: 100%;
   height: var(--input-h);
   font-size: 12px;
+}
+.sp-hint {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-faint);
 }
 .sp-check-sec {
   flex-direction: row;

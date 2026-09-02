@@ -1,11 +1,11 @@
 // 标签页 store：每个标签持有独立的 Request 对象（互不串数据）
 // dirty 表示"已保存过的请求被修改"或"未保存的新请求"，UI 显示圆点
-import { reactive, computed } from 'vue'
+import { reactive, computed, ref } from 'vue'
 import type { ID, Request, HTTPResponse, WSMessageEvent } from '../types/models'
-import { uid, newRequest } from '../types/models'
-import { scheduleSave } from '../lib/persist'
+import { uid, newRequest, cloneDeep } from '../types/models'
+import { scheduleSave, flushNow } from '../lib/persist'
 import { WSService } from '../api/backend'
-import { findRequest } from './workspace'
+import { findRequest, currentProject, findNode, addRequest } from './workspace'
 import { closeVarPage } from './ui-state'
 
 export interface LiveTab {
@@ -127,4 +127,59 @@ export function moveTab(fromIdx: number, toIdx: number) {
   const [t] = tabs.tabs.splice(fromIdx, 1)
   tabs.tabs.splice(toIdx > fromIdx ? toIdx - 1 : toIdx, 0, t)
   scheduleSave('ui')
+}
+
+// ---------- 批量关闭（标签右键菜单用） ----------
+export function closeTabsToLeft(tabId: ID) {
+  const i = tabs.tabs.findIndex((t) => t.tabId === tabId)
+  if (i < 0) return
+  tabs.tabs.slice(0, i).map((t) => t.tabId).forEach(closeTab)
+}
+export function closeTabsToRight(tabId: ID) {
+  const i = tabs.tabs.findIndex((t) => t.tabId === tabId)
+  if (i < 0) return
+  tabs.tabs.slice(i + 1).map((t) => t.tabId).forEach(closeTab)
+}
+export function closeOtherTabs(tabId: ID) {
+  tabs.tabs
+    .filter((t) => t.tabId !== tabId)
+    .map((t) => t.tabId)
+    .forEach(closeTab)
+}
+
+// ---------- 保存（标签右键菜单 / Cmd+S / 保存按钮共用） ----------
+// 未归属树的请求 → 置 saveToTabId，由 App.vue 统一渲染"保存到集合"对话框
+export const saveToTabId = ref<ID | null>(null)
+
+export function saveTab(tabId: ID) {
+  const t = tabs.tabs.find((x) => x.tabId === tabId)
+  if (!t) return
+  if (t.savedInTree) {
+    void flushNow('projects').then(() => markSaved(tabId))
+  } else {
+    saveToTabId.value = tabId
+  }
+}
+
+export function doSaveTo(tabId: ID, name: string, targetId: ID) {
+  const p = currentProject.value
+  if (!p) return
+  const t = tabs.tabs.find((x) => x.tabId === tabId)
+  if (!t) return
+  // 目标可能是集合（findNode 只查集合内部），先按集合匹配
+  let target = p.collections.find((c) => c.id === targetId) ?? null
+  if (!target) {
+    const n = findNode(p, targetId)
+    if (n && n.kind !== 'request') target = n
+  }
+  if (!target) return
+  // 克隆为新树节点（新 id），把当前标签切换到树节点（后续编辑直接落盘）
+  const clone = cloneDeep(t.request)
+  clone.id = uid()
+  clone.name = name
+  const node = addRequest(target, clone)
+  t.request = node
+  t.savedInTree = true
+  markSaved(tabId)
+  saveToTabId.value = null
 }

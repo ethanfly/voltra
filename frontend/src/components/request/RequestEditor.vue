@@ -2,7 +2,7 @@
 // 请求编辑器容器：UrlBar + 六个编辑页（Params/Headers/Body/Auth/Scripts/Settings）
 // 深监听 request 变化 → dirty 圆点 + 已归属树的请求自动 debounce 落盘
 // Cmd+S（window capture，抢在 CM6 之前）：已归属 → 立即落盘；未归属 → SaveToDialog
-import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, reactive, watch } from 'vue'
 import UrlBar from './UrlBar.vue'
 import ParamsTab from './ParamsTab.vue'
 import HeadersTab from './HeadersTab.vue'
@@ -10,12 +10,9 @@ import BodyTab from './BodyTab.vue'
 import AuthTab from './AuthTab.vue'
 import ScriptsTab from './ScriptsTab.vue'
 import SettingsTab from './SettingsTab.vue'
-import SaveToDialog from '../tree/SaveToDialog.vue'
-import { tabs, markDirty, markSaved, responses } from '../../stores/tabs'
-import { currentProject, findNode, addRequest } from '../../stores/workspace'
-import { scheduleSave, flushNow } from '../../lib/persist'
+import { tabs, markDirty, responses, saveTab } from '../../stores/tabs'
+import { scheduleSave } from '../../lib/persist'
 import { sendRequest, cancelRequest, isSending } from '../../lib/send'
-import { uid, cloneDeep } from '../../types/models'
 import type { LiveTab } from '../../stores/tabs'
 import type { ID } from '../../types/models'
 import { t } from '../../locales/zh-CN'
@@ -88,38 +85,9 @@ function onCancel() {
   cancelRequest(props.tab.tabId)
 }
 
-// ---------- 保存 ----------
-const saveTo = ref(false)
-
+// ---------- 保存（Cmd+S / 按钮；逻辑在 tabs store，标签右键菜单共用） ----------
 function onSave() {
-  if (props.tab.savedInTree) {
-    void flushNow('projects')
-    markSaved(props.tab.tabId)
-  } else {
-    saveTo.value = true
-  }
-}
-
-function doSaveTo(name: string, targetId: ID) {
-  const p = currentProject.value
-  if (!p) return
-  // 目标可能是集合（findNode 只查集合内部），先按集合匹配
-  let target = p.collections.find((c) => c.id === targetId) ?? null
-  if (!target) {
-    const n = findNode(p, targetId)
-    if (n && n.kind !== 'request') target = n
-  }
-  if (!target) return
-  // 克隆为新树节点（新 id），把当前标签切换到树节点（后续编辑直接落盘）
-  const clone = cloneDeep(props.tab.request)
-  clone.id = uid()
-  clone.name = name
-  const node = addRequest(target, clone)
-  const t = tabs.tabs.find((x) => x.tabId === props.tab.tabId)
-  if (!t) return
-  t.request = node
-  t.savedInTree = true
-  markSaved(t.tabId)
+  saveTab(props.tab.tabId)
 }
 
 // ---------- Cmd+S（capture 阶段抢在编辑器内部 keymap 前） ----------
@@ -164,8 +132,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
       <ScriptsTab v-else-if="activeEditTab === 'scripts'" :request="tab.request" />
       <SettingsTab v-else :request="tab.request" />
     </div>
-
-    <SaveToDialog v-if="saveTo" :name="tab.request.name" @save="doSaveTo" @close="saveTo = false" />
   </div>
 </template>
 

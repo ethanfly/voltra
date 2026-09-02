@@ -3,8 +3,22 @@
 import { ref, computed } from 'vue'
 import { Plus, X, Globe, Wifi } from 'lucide-vue-next'
 import Dropdown from '../common/Dropdown.vue'
-import { tabs, newEmptyRequest, setActiveTab, closeTab, moveTab } from '../../stores/tabs'
+import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
+import {
+  tabs,
+  newEmptyRequest,
+  setActiveTab,
+  closeTab,
+  moveTab,
+  saveTab,
+  closeTabsToLeft,
+  closeTabsToRight,
+  closeOtherTabs,
+} from '../../stores/tabs'
 import type { LiveTab } from '../../stores/tabs'
+import type { ID } from '../../types/models'
+import { buildCodegenCtx } from '../../lib/codegen/context'
+import { generate } from '../../lib/codegen'
 import { t } from '../../locales/zh-CN'
 
 const L = computed(() => t())
@@ -47,6 +61,52 @@ function openNew(kind: 'http' | 'ws') {
   const tab = newEmptyRequest(kind)
   setActiveTab(tab.tabId)
 }
+
+// ---------- 右键菜单（关闭当前/左/右/其他 · 保存 · 复制请求） ----------
+const ctxMenu = ref<{ x: number; y: number; tabId: ID } | null>(null)
+
+function onTabContext(t: LiveTab, e: MouseEvent) {
+  setActiveTab(t.tabId) // 让"关闭当前/左/右/其他"以右键的这个标签为基准
+  ctxMenu.value = { x: e.clientX, y: e.clientY, tabId: t.tabId }
+}
+
+const ctxItems = computed<MenuItem[]>(() => [
+  { label: L.value.tabs.closeCurrent },
+  { label: L.value.tabs.closeLeft },
+  { label: L.value.tabs.closeRight },
+  { label: L.value.tabs.closeOthers },
+  { label: '', sep: true },
+  { label: L.value.common.save },
+  { label: L.value.tabs.copyRequest },
+])
+
+// 条目顺序固定：0 当前 / 1 左 / 2 右 / 3 其他 / 4 分隔 / 5 保存 / 6 复制
+function onCtxSelect(_item: unknown, index: number) {
+  const m = ctxMenu.value
+  ctxMenu.value = null
+  if (!m) return
+  switch (index) {
+    case 0: closeTab(m.tabId); break
+    case 1: closeTabsToLeft(m.tabId); break
+    case 2: closeTabsToRight(m.tabId); break
+    case 3: closeOtherTabs(m.tabId); break
+    case 5: saveTab(m.tabId); break
+    case 6: void copyRequest(m.tabId); break
+  }
+}
+
+/** 复制请求：HTTP → cURL（保留 {{变量}}）；WS → 连接 URL */
+async function copyRequest(tabId: ID) {
+  const t = tabs.tabs.find((x) => x.tabId === tabId)
+  if (!t) return
+  const text =
+    t.request.protocol === 'ws' ? t.request.url : generate('shell', 'curl', buildCodegenCtx(t.request, false))
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch (e) {
+    console.error('copy request failed', e)
+  }
+}
 </script>
 
 <template>
@@ -68,6 +128,7 @@ function openNew(kind: 'http' | 'ws') {
         @dragend="dragIndex = null; dropIndex = null"
         @click="setActiveTab(t.tabId)"
         @auxclick.middle.prevent="closeTab(t.tabId)"
+        @contextmenu.prevent="onTabContext(t, $event)"
       >
         <component :is="t.request.protocol === 'ws' ? Wifi : Globe" :size="12" class="tab-ico" />
         <span :class="['tab-method', methodClass(t)]">
@@ -95,6 +156,15 @@ function openNew(kind: 'http' | 'ws') {
         </button>
       </template>
     </Dropdown>
+
+    <ContextMenu
+      v-if="ctxMenu"
+      :x="ctxMenu.x"
+      :y="ctxMenu.y"
+      :items="ctxItems"
+      @select="onCtxSelect"
+      @close="ctxMenu = null"
+    />
   </div>
 </template>
 

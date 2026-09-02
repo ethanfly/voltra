@@ -130,6 +130,7 @@ export interface AppSettings {
   autoCompleteScheme: boolean // SET-4：是否自动补全 URL scheme
   defaultScheme: 'http' | 'https'
   historyLimit: number // HIS-5，默认 500
+  importLimitMB: number // 导入文件上限（MB），默认 30；越大越可能占用更多内存
 }
 
 export interface WsSnippet {
@@ -234,6 +235,7 @@ export function defaultSettings(): AppSettings {
     autoCompleteScheme: true,
     defaultScheme: 'https',
     historyLimit: 500,
+    importLimitMB: 30,
   }
 }
 

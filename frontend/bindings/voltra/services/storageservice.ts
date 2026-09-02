@@ -118,6 +118,14 @@ export function ReadFile(path: string): $CancellablePromise<string> {
 }
 
 /**
+ * ReadFileBounded 同 ReadFile，但字节上限由调用方指定（导入文件用，上限可在设置里调整）。
+ * maxBytes<=0 时回退到默认 30MB。相比固定上限的 ReadFile，这里把"允许多大"交给用户。
+ */
+export function ReadFileBounded(path: string, maxBytes: number): $CancellablePromise<string> {
+    return $Call.ByID(3286590723, path, maxBytes);
+}
+
+/**
  * SaveCollections 保存旧版接口集合数据
  */
 export function SaveCollections(data: string): $CancellablePromise<void> {

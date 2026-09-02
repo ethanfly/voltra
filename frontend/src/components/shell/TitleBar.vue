@@ -14,6 +14,7 @@ import {
   currentProject,
   addProject,
   removeProject,
+  renameProject,
   setCurrentProject,
   findRequest,
 } from '../../stores/workspace'
@@ -43,6 +44,15 @@ function confirmNewProject() {
   setCurrentProject(p.id)
   showNewProject.value = false
   newProjectName.value = ''
+}
+
+// 重命名当前项目（弹窗）
+const showRenameProject = ref(false)
+function confirmRenameProject(name: string) {
+  const p = currentProject.value
+  if (!p) return
+  renameProject(p.id, name)
+  showRenameProject.value = false
 }
 
 // 删除当前项目
@@ -171,6 +181,9 @@ async function onClose() {
         <button class="menu-item menu-btn" @click="showNewProject = true; close()">
           <Plus :size="13" /> {{ L.dialog.projectNew }}
         </button>
+        <button v-if="currentProject" class="menu-item menu-btn" @click="showRenameProject = true; close()">
+          <Pencil :size="13" /> {{ L.dialog.projectRename }}
+        </button>
         <button
           v-if="currentProject"
           class="menu-item menu-btn danger"
@@ -199,6 +212,15 @@ async function onClose() {
             {{ L.titleBar.envNone }}
           </button>
           <template v-if="currentProject">
+            <!-- 新建/管理固定紧跟"无环境"，避免环境多时把这两项顶出可视区 -->
+            <div class="menu-sep"></div>
+            <button class="menu-item menu-btn" @click="openNewEnv(); close()">
+              <Plus :size="13" /> {{ L.dialog.envNew }}
+            </button>
+            <button class="menu-item menu-btn" @click="activePanel = 'environments'; close()">
+              <Layers :size="13" /> {{ L.dialog.envManage }}
+            </button>
+            <div v-if="currentProject.environments.length > 0" class="menu-sep"></div>
             <div
               v-for="e in currentProject.environments"
               :key="e.id"
@@ -215,13 +237,6 @@ async function onClose() {
                 </button>
               </span>
             </div>
-            <div class="menu-sep"></div>
-            <button class="menu-item menu-btn" @click="openNewEnv(); close()">
-              <Plus :size="13" /> {{ L.dialog.envNew }}
-            </button>
-            <button class="menu-item menu-btn" @click="activePanel = 'environments'; close()">
-              <Layers :size="13" /> {{ L.dialog.envManage }}
-            </button>
           </template>
         </div>
       </template>
@@ -307,6 +322,15 @@ async function onClose() {
       :danger="true"
       @confirm="doDeleteProject"
       @cancel="confirmDeleteProject = false"
+    />
+
+    <PromptDialog
+      v-if="showRenameProject"
+      :title="L.dialog.projectRename"
+      :placeholder="L.dialog.projectNewPlaceholder"
+      :initial-value="currentProject?.name ?? ''"
+      @confirm="confirmRenameProject"
+      @cancel="showRenameProject = false"
     />
 
     <PromptDialog

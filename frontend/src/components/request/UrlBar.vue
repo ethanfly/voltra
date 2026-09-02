@@ -5,9 +5,10 @@
 // {{变量}} 高亮（REQ-2/ENV-4）：镜像里渲染分段 span（已定义=品牌色，未定义=红色波浪线）；
 // 悬浮值（ENV-5）放输入框 title（镜像 pointer-events:none，无法独立悬浮）
 import { computed, ref } from 'vue'
-import { Save, Send, Loader2, X, FileTerminal, Code } from 'lucide-vue-next'
+import { Save, Send, Loader2, X, FileTerminal, Code, MoreVertical } from 'lucide-vue-next'
 import MethodPicker from './MethodPicker.vue'
 import CurlDialog from './CurlDialog.vue'
+import Dropdown from '../common/Dropdown.vue'
 import type { Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 import { segmentVars } from '../../lib/vars'
@@ -101,15 +102,25 @@ function applyCurl(req: Request) {
         @scroll="syncScroll"
       />
     </div>
-    <button class="icon-btn" :title="L.request.pasteCurl" @click="showCurl = true">
-      <FileTerminal :size="15" />
-    </button>
-    <button class="icon-btn" :title="L.request.generateCode" @click="openCodegen(request.id)">
-      <Code :size="15" />
-    </button>
     <button class="icon-btn" :title="L.request.save" @click="emit('save')">
       <Save :size="15" />
     </button>
+    <!-- 次要操作（粘贴 cURL / 生成代码）收进 kebab，让 URL 栏对齐 Postman 的"方法+URL+…+发送" -->
+    <Dropdown>
+      <template #trigger="{ open }">
+        <button :class="['icon-btn', 'ub-kebab', { open }]">
+          <MoreVertical :size="15" />
+        </button>
+      </template>
+      <template #default="{ close }">
+        <button class="menu-item menu-btn" @click="showCurl = true; close()">
+          <FileTerminal :size="13" /> {{ L.request.pasteCurl }}
+        </button>
+        <button class="menu-item menu-btn" @click="openCodegen(request.id); close()">
+          <Code :size="13" /> {{ L.request.generateCode }}
+        </button>
+      </template>
+    </Dropdown>
     <button v-if="sending" class="btn btn-danger ub-send" @click="emit('cancel')">
       <X :size="13" /> {{ L.request.cancel }}
     </button>
@@ -204,5 +215,27 @@ function applyCurl(req: Request) {
   to {
     transform: rotate(360deg);
   }
+}
+/* kebab 菜单项（与 TabStrip / TitleBar 的菜单视觉一致） */
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.menu-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.menu-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 </style>

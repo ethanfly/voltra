@@ -14,14 +14,15 @@ import WsEditor from './components/ws/WsEditor.vue'
 import WsTimeline from './components/ws/WsTimeline.vue'
 import WsComposer from './components/ws/WsComposer.vue'
 import CodeGenDrawer from './components/codegen/CodeGenDrawer.vue'
+import SaveToDialog from './components/tree/SaveToDialog.vue'
 import { startWsBridge } from './lib/ws-bridge'
 import { bootstrap } from './lib/persist'
 import { initZoomKeys } from './lib/zoom'
-import { sendRequest } from './lib/send'
+import { sendRequest, isSending } from './lib/send'
 import EnvPage from './components/env/EnvPage.vue'
-import { tabs, activeTab, responses } from './stores/tabs'
+import { tabs, activeTab, responses, saveToTabId, doSaveTo } from './stores/tabs'
 import { uiState, setSplitRatio, varPage } from './stores/ui-state'
-import type { HTTPResponseModel } from './types/models'
+import type { HTTPResponseModel, ID } from './types/models'
 
 onMounted(() => {
   startWsBridge()
@@ -35,6 +36,15 @@ const editorArea = ref<HTMLElement | null>(null)
 const activeResponse = computed<HTTPResponseModel | null>(
   () => (tabs.activeTabId ? (responses[tabs.activeTabId] ?? null) : null),
 )
+
+// 当前标签是否正在请求（响应区显示"请求中"loading，避免用户以为卡死）
+const activeSending = computed(() => (tabs.activeTabId ? isSending(tabs.activeTabId) : false))
+
+// "保存到集合"对话框（未保存标签：Cmd+S / 保存按钮 / 标签右键"保存" 共用，见 tabs.saveTab）
+const saveToTabName = computed(() => tabs.tabs.find((t) => t.tabId === saveToTabId.value)?.request.name ?? '')
+function onSaveToConfirm(name: string, targetId: ID) {
+  if (saveToTabId.value) doSaveTo(saveToTabId.value, name, targetId)
+}
 
 /** 错误卡"重试"：重发当前标签 */
 async function onRetry() {
@@ -72,7 +82,7 @@ function onSplit(delta: number) {
             </div>
             <Splitter axis="y" @resize="onSplit" />
             <div class="pane resp-pane">
-              <ResponseViewer :response="activeResponse" @retry="onRetry" />
+              <ResponseViewer :response="activeResponse" :sending="activeSending" @retry="onRetry" />
             </div>
           </template>
           <div v-else-if="activeTab && activeTab.request.protocol === 'ws'" class="pane ws-pane">
@@ -90,6 +100,7 @@ function onSplit(delta: number) {
     </div>
     <StatusBar />
     <CodeGenDrawer />
+    <SaveToDialog v-if="saveToTabId" :name="saveToTabName" @save="onSaveToConfirm" @close="saveToTabId = null" />
   </div>
 </template>
 

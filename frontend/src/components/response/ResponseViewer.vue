@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // 响应查看器容器：空态 / 错误卡（按 errorKind 中文）/ 状态行 + Body·Headers·Cookies
 import { computed, ref, watch } from 'vue'
+import { Loader2 } from 'lucide-vue-next'
 import EmptyState from '../common/EmptyState.vue'
 import StatusLine from './StatusLine.vue'
 import BodyTab from './BodyTab.vue'
@@ -11,7 +12,10 @@ import { parseSetCookies } from '../../lib/cookies'
 import type { HTTPResponseModel } from '../../types/models'
 import { t } from '../../locales/zh-CN'
 
-const props = defineProps<{ response: HTTPResponseModel | null }>()
+const props = withDefaults(
+  defineProps<{ response: HTTPResponseModel | null; sending?: boolean }>(),
+  { sending: false },
+)
 const emit = defineEmits<{ (e: 'retry'): void }>()
 const L = computed(() => t())
 
@@ -38,7 +42,12 @@ const tabs = computed(() => {
 
 <template>
   <div class="rv">
-    <EmptyState v-if="!response" :title="L.response.empty" />
+    <div v-if="sending && !response" class="rv-loading">
+      <Loader2 :size="18" class="spin" />
+      <span>{{ L.response.loading }}</span>
+    </div>
+
+    <EmptyState v-else-if="!response" :title="L.response.empty" />
 
     <ErrorCard v-else-if="hasError" :response="response!" @retry="emit('retry')" />
 
@@ -109,4 +118,21 @@ const tabs = computed(() => {
   flex-direction: column;
   padding-top: 8px;
 }
-</style>
+.rv-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+.rv-loading .spin {
+  color: var(--brand);
+  animation: rv-spin 1s linear infinite;
+}
+@keyframes rv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}</style>
