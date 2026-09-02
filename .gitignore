@@ -1,5 +1,5 @@
 .task
-bin
+bin/
 frontend/dist
 frontend/node_modules
 build/linux/appimage/build
@@ -10,4 +10,10 @@ build/ios/xcode/gen/
 build/android/overlay.json
 build/android/gen/
 *.png
+# 构建图标为仓库必需（build/ 父目录未被排除，否定生效）
+!build/**/*.png
+# 开源宣传截图
+!screenshots/*.png
 /docs/*
+.idea/
+.DS_Store

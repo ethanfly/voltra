@@ -6,7 +6,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"voltra/services"
+	"github.com/ramboLiang/voltra/services"
 )
 
 // 前端构建产物会输出到 frontend/dist，构建时一并打包进二进制

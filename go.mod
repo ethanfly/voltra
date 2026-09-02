@@ -1,4 +1,4 @@
-module voltra
+module github.com/ramboLiang/voltra
 
 go 1.25.0
 
