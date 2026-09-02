@@ -115,6 +115,20 @@ export function startRowDrag(e: MouseEvent, id: ID, kind: RowKind, name: string)
   activeId = id
   activeKind = kind
 
+  // 自愈：上一次拖拽若没等到 mouseup（如拖到窗口外松手、窗口切走），
+  // 状态会卡住（幽灵残留 / tv-dragging 不解除 / rAF 空转），新 mousedown 先清掉
+  if (activeId) {
+    cancelAnimationFrame(rafId)
+    activeId = null
+    activeKind = null
+    started = false
+    dragNodeId.value = null
+    dragKind.value = null
+    dropTarget.value = null
+    dragGhost.value = null
+    document.body.classList.remove('tv-dragging')
+  }
+
   const onMove = (ev: MouseEvent) => {
     curX = ev.clientX
     curY = ev.clientY
@@ -129,9 +143,11 @@ export function startRowDrag(e: MouseEvent, id: ID, kind: RowKind, name: string)
     }
     ev.preventDefault()
   }
-  const onUp = (ev: MouseEvent) => {
+  // 统一收尾：ev=null 表示被动结束（窗口失焦），只清状态不结算落点
+  const finish = (ev: MouseEvent | null) => {
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('mouseup', onUp)
+    window.removeEventListener('blur', onBlur)
     if (rafId) cancelAnimationFrame(rafId)
     const did = activeId
     const dKind = activeKind
@@ -145,14 +161,17 @@ export function startRowDrag(e: MouseEvent, id: ID, kind: RowKind, name: string)
     dropTarget.value = null
     dragGhost.value = null
     document.body.classList.remove('tv-dragging')
-    if (did && dKind && didDrag) {
+    if (did && dKind && didDrag && ev) {
       lastDragEndAt = Date.now()
       const hit = hitTest(ev.clientX, ev.clientY, did, dKind)
       if (hit) commitDrop(did, dKind, hit.id, hit.pos)
     }
   }
+  const onUp = (ev: MouseEvent) => finish(ev)
+  const onBlur = () => finish(null) // 拖拽中窗口失焦（如松手在别的应用上）：清理但不落点
   window.addEventListener('mousemove', onMove)
   window.addEventListener('mouseup', onUp)
+  window.addEventListener('blur', onBlur)
 }
 
 function commitDrop(dragId: ID, dragK: RowKind, targetId: ID, pos: DropPos) {

@@ -285,9 +285,12 @@ function setRowEl(el: unknown) {
   display: flex;
   gap: 2px;
   opacity: 0;
+  transition: opacity 0.12s ease;
   flex-shrink: 0;
 }
-.tn-row:hover .tn-acts {
+/* 行 hover 或按钮获焦（键盘 Tab）时显示；过渡让 WebKit 下 hover 状态抖动时按钮不闪没 */
+.tn-row:hover .tn-acts,
+.tn-row:focus-within .tn-acts {
   opacity: 1;
 }
 .tn-act {
