@@ -14,13 +14,13 @@ export type {
   AuthDigest,
   AuthOAuth1,
   AuthAWSV4,
-} from '../../bindings/voltra/services'
+} from '../../bindings/github.com/ramboLiang/voltra/services'
 import type {
   KVPair,
   FormField,
   GraphQLBody,
   HTTPResponse,
-} from '../../bindings/voltra/services'
+} from '../../bindings/github.com/ramboLiang/voltra/services'
 
 /** 应用版本（与 build/config.yml、Go 侧 defaultUserAgent 常量保持一致；升级时三处同改） */
 export const APP_VERSION = '0.2.0'

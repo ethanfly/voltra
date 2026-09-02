@@ -19,7 +19,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/application/models.js";
+import * as application$0 from "../../../wailsapp/wails/v3/pkg/application/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -30,14 +30,14 @@ import * as $models from "./models.js";
  * 这样 WSService 才能拿到 app 实例用于向前端 Emit 事件
  */
 export function BindApp(app: application$0.App | null): $CancellablePromise<void> {
-    return $Call.ByID(1943405315, app);
+    return $Call.ByID(4164373237, app);
 }
 
 /**
  * Close 主动关闭指定连接（包括中止进行中的自动重连）
  */
 export function Close(connID: string): $CancellablePromise<void> {
-    return $Call.ByID(11571957, connID);
+    return $Call.ByID(371717619, connID);
 }
 
 /**
@@ -45,40 +45,40 @@ export function Close(connID: string): $CancellablePromise<void> {
  * headers 用于自定义握手请求头（例如鉴权 token），opts 控制重连与心跳
  */
 export function Connect(url: string, headers: $models.KVPair[] | null, opts: $models.WSConnectOptions): $CancellablePromise<string> {
-    return $Call.ByID(6186835, url, headers, opts);
+    return $Call.ByID(1643871433, url, headers, opts);
 }
 
 /**
  * ListConnections 返回当前所有活跃连接的 ID，便于前端刷新状态
  */
 export function ListConnections(): $CancellablePromise<string[] | null> {
-    return $Call.ByID(2640616564);
+    return $Call.ByID(807053626);
 }
 
 /**
  * Send 向指定连接发送一条文本消息
  */
 export function Send(connID: string, message: string): $CancellablePromise<void> {
-    return $Call.ByID(381669065, connID, message);
+    return $Call.ByID(3902463967, connID, message);
 }
 
 /**
  * SendBinary 向指定连接发送一条二进制消息（base64 编码传入）
  */
 export function SendBinary(connID: string, base64Data: string): $CancellablePromise<void> {
-    return $Call.ByID(2534497064, connID, base64Data);
+    return $Call.ByID(3411004178, connID, base64Data);
 }
 
 /**
  * SetAutoReconnect 运行时切换自动重连开关（影响之后的断线行为）
  */
 export function SetAutoReconnect(connID: string, enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(1329660975, connID, enabled);
+    return $Call.ByID(2172685637, connID, enabled);
 }
 
 /**
  * SetHeartbeat 运行时切换心跳开关
  */
 export function SetHeartbeat(connID: string, enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2743212999, connID, enabled);
+    return $Call.ByID(3077154769, connID, enabled);
 }

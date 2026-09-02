@@ -12,7 +12,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/application/models.js";
+import * as application$0 from "../../../wailsapp/wails/v3/pkg/application/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -23,7 +23,7 @@ import * as $models from "./models.js";
  * 这样 DownloadRequest 才能拿到 app 实例弹出原生保存对话框
  */
 export function BindApp(app: application$0.App | null): $CancellablePromise<void> {
-    return $Call.ByID(4036917809, app);
+    return $Call.ByID(3401919563, app);
 }
 
 /**
@@ -32,7 +32,7 @@ export function BindApp(app: application$0.App | null): $CancellablePromise<void
  * ctx 由 Wails 注入，前端取消时 ctx 取消、网络阶段随之中断（对话框已弹出后无法中途收回）。
  */
 export function DownloadRequest(req: $models.HTTPRequest): $CancellablePromise<$models.DownloadResult> {
-    return $Call.ByID(15245746, req);
+    return $Call.ByID(495261388, req);
 }
 
 /**
@@ -40,7 +40,7 @@ export function DownloadRequest(req: $models.HTTPRequest): $CancellablePromise<$
  * 非 2xx / 非 JSON / 缺 access_token 都返回带响应体片段的中文错误，供前端 toast 展示
  */
 export function FetchOAuth2Token(t: $models.OAuth2TokenRequest): $CancellablePromise<$models.OAuth2TokenResponse> {
-    return $Call.ByID(1148367705, t);
+    return $Call.ByID(3052020259, t);
 }
 
 /**
@@ -49,5 +49,5 @@ export function FetchOAuth2Token(t: $models.OAuth2TokenRequest): $CancellablePro
  * 前端调用 CancellablePromise.cancel() 时 ctx 被取消，请求随之中断
  */
 export function SendRequest(req: $models.HTTPRequest): $CancellablePromise<$models.HTTPResponse> {
-    return $Call.ByID(3739269508, req);
+    return $Call.ByID(761133638, req);
 }
