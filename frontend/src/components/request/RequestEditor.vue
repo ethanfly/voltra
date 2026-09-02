@@ -166,21 +166,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 }
 .re-tabs {
   display: flex;
-  gap: 2px;
-  padding: 0 12px;
+  gap: 4px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border);
 }
 .re-tab {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
-  padding: 7px 10px 8px;
+  font-size: 13px;
+  padding: 9px 12px 10px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   transition: color var(--ease);
 }
 .re-tab:hover {
@@ -191,10 +191,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
   border-bottom-color: var(--brand);
 }
 .re-tab-count {
-  font-size: 10px;
+  font-size: 11px;
   background: var(--bg-sunken);
   border-radius: 8px;
-  padding: 0 5px;
+  padding: 1px 6px;
   color: var(--text-faint);
 }
 .re-body {

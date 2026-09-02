@@ -2,6 +2,7 @@
 // 粘贴 cURL 解析对话框：打开时尝试读剪贴板预填；实时解析显示错误/warning，应用后覆盖当前请求
 import { computed, onMounted, ref } from 'vue'
 import Modal from '../common/Modal.vue'
+import CodeEditor from '../common/CodeEditor.vue'
 import { parseCurl } from '../../lib/curl'
 import type { Request } from '../../types/models'
 import { t } from '../../locales/zh-CN'
@@ -32,12 +33,16 @@ onMounted(async () => {
 <template>
   <Modal :title="L.request.pasteCurl" :width="560" @close="emit('close')">
     <div class="cd">
-      <textarea
-        v-model="text"
-        class="cd-text"
-        spellcheck="false"
-        :placeholder="L.request.curlPlaceholder"
-      ></textarea>
+      <div class="cd-box">
+        <CodeEditor
+          v-model="text"
+          class="cd-text"
+          language="text"
+          :height="180"
+          :line-numbers="true"
+          :placeholder="L.request.curlPlaceholder"
+        />
+      </div>
       <div v-if="parsed && !parsed.ok" class="cd-err">{{ parsed.error }}</div>
       <template v-else-if="parsed && parsed.ok">
         <ul v-if="(parsed.warnings?.length ?? 0) > 0" class="cd-warns">
@@ -64,22 +69,16 @@ onMounted(async () => {
   flex-direction: column;
   gap: 8px;
 }
-.cd-text {
-  width: 100%;
-  box-sizing: border-box;
-  height: 180px;
-  padding: 8px 10px;
+/* 编辑器包在带边框圆角的盒里（.ce 自身只有 border-top，为嵌在 tab 下的布局设计） */
+.cd-box {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-sunken);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.5;
-  resize: vertical;
-  outline: none;
+  overflow: hidden;
 }
-.cd-text:focus {
+.cd-box :deep(.ce) {
+  border-top: none;
+}
+.cd-box:focus-within {
   border-color: var(--brand);
 }
 .cd-err {

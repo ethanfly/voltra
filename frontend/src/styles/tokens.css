@@ -6,18 +6,18 @@
 :root {
   --font: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --mono: 'SF Mono', 'JetBrains Mono', Consolas, 'Courier New', monospace;
-  --radius: 6px;
-  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-sm: 5px;
   --ease: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* 布局尺寸 */
   --titlebar-h: 40px;
   --activitybar-w: 48px;
-  --tabstrip-h: 38px;
+  --tabstrip-h: 40px;
   --statusbar-h: 26px;
-  --row-h: 28px;
-  --input-h: 28px;
-  --urlbar-h: 36px;
+  --row-h: 30px;
+  --input-h: 30px;
+  --urlbar-h: 40px;
 
   /* 状态色 */
   --ok: #3aa856;
@@ -29,13 +29,15 @@
 }
 
 [data-theme='light'] {
-  --bg: #f4f4f6;
+  /* 三层表面（Postman 式）：画布 < 面板 < 字段。sunken 即"字段层"
+     （URL 栏 / 代码编辑器 / 输入框），比面板略深、比画布略浅，浮出但不出戏 */
+  --bg: #eef0f5;
   --bg-elev: #ffffff;
-  --bg-sunken: #ececed;
-  --bg-hover: #eef0fb;
-  --bg-active: #e5e3fa;
-  --border: #e2e2e6;
-  --border-strong: #cfcfd6;
+  --bg-sunken: #f6f7fb;
+  --bg-hover: #eceffb;
+  --bg-active: #e4e1f9;
+  --border: #e2e3ea;
+  --border-strong: #c9cad4;
   --text: #1f2024;
   --text-dim: #6b6b74;
   --text-faint: #9a9aa2;
@@ -47,18 +49,20 @@
 }
 
 [data-theme='dark'] {
-  --bg: #17181c;
-  --bg-elev: #1e1f24;
-  --bg-sunken: #131317;
-  --bg-hover: #26262f;
-  --bg-active: #2f2b47;
-  --border: #2c2d34;
-  --border-strong: #3a3b44;
-  --text: #e7e7ea;
-  --text-dim: #9a9ba4;
-  --text-faint: #6a6b74;
+  /* 三层表面（Postman 式）：画布（最暗）< 面板 < 字段。字段层（URL 栏 / 编辑器 / 输入框）
+     比所在面板亮一档，"可输入的区域"整体浮起，扫一眼就有层次 */
+  --bg: #141519;
+  --bg-elev: #1d1e25;
+  --bg-sunken: #262836;
+  --bg-hover: #2a2c3a;
+  --bg-active: #332d58;
+  --border: #2b2c36;
+  --border-strong: #42434f;
+  --text: #eaeaef;
+  --text-dim: #a3a4b1;
+  --text-faint: #74758a;
   --brand: #8b7dff;
-  --brand-weak: #262246;
+  --brand-weak: #2d2856;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
   --scrollbar-thumb: var(--border-strong);
   color-scheme: dark;
@@ -268,14 +272,14 @@ textarea::placeholder {
   background: var(--brand-weak);
 }
 
-/* 未聚焦态也要能看清"这是个输入框"：elev 底（深色下比面板亮一档）+ 强边框，
+/* 未聚焦态也要能看清"这是个输入框"：字段层底（深色下比面板亮一档）+ 强边框，
    只靠 faint 边框在深色下几乎与背景融为一体（用户实测反馈） */
 .input {
   height: var(--input-h);
   padding: 0 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
-  background: var(--bg-elev);
+  background: var(--bg-sunken);
   outline: none;
   transition: border-color var(--ease), box-shadow var(--ease);
 }

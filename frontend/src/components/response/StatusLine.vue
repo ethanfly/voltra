@@ -36,13 +36,13 @@ const statusClass = computed(() => {
 .sl {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 2px 6px;
+  gap: 14px;
+  padding: 10px 16px 8px;
   font-size: 12px;
 }
 .sl-status {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
 }
 .sl-meta {
   color: var(--text-dim);

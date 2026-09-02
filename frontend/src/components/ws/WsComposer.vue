@@ -148,7 +148,7 @@ watch(
         @keydown="onTextKey"
       />
       <div v-else-if="mode === 'json'" class="wc-json">
-        <CodeEditor v-model="jsonBuf" language="json" :height="88" />
+        <CodeEditor v-model="jsonBuf" language="json" :height="88" :line-numbers="true" />
         <span v-if="jsonBuf.trim() && !jsonOk" class="wc-json-bad">{{ L.ws.jsonInvalid }}</span>
       </div>
       <input

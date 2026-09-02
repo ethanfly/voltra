@@ -82,20 +82,21 @@ const tabs = computed(() => {
 }
 .rv-tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--border);
 }
 .rv-tab {
   border: none;
   background: transparent;
   color: var(--text-dim);
-  font-size: 12px;
-  padding: 7px 10px 8px;
+  font-size: 13px;
+  padding: 9px 12px 10px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 .rv-tab:hover {
   color: var(--text);
@@ -105,10 +106,10 @@ const tabs = computed(() => {
   border-bottom-color: var(--brand);
 }
 .rv-tab-count {
-  font-size: 10px;
+  font-size: 11px;
   background: var(--bg-sunken);
   border-radius: 8px;
-  padding: 0 5px;
+  padding: 1px 6px;
   color: var(--text-faint);
 }
 .rv-body {

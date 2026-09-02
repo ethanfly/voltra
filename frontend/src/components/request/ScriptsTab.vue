@@ -16,6 +16,7 @@ const L = t()
       class="st-ed"
       :model-value="request.preRequestScript ?? ''"
       language="javascript"
+      :line-numbers="true"
       @update:model-value="request.preRequestScript = $event"
     />
     <label class="st-label">{{ L.request.scripts.test }}</label>
@@ -23,6 +24,7 @@ const L = t()
       class="st-ed"
       :model-value="request.testScript ?? ''"
       language="javascript"
+      :line-numbers="true"
       @update:model-value="request.testScript = $event"
     />
   </div>

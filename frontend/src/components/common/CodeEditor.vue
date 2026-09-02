@@ -85,7 +85,7 @@ function jsonLinter() {
 const baseTheme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: '12px',
+    fontSize: '13px',
     backgroundColor: 'var(--bg-sunken)',
     color: 'var(--text)',
   },
@@ -273,7 +273,7 @@ defineExpose({ format, getView: () => view })
   /* 与 .cm-content 的 padding 8px 14px 对齐（无行号槽的 text/js 下文字起点） */
   top: 8px;
   left: 14px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-faint);
   pointer-events: none;
 }

@@ -114,6 +114,7 @@ function removeFormRow(f: FormField) {
         ref="rawEditor"
         :model-value="request.body.raw ?? ''"
         :language="(request.body.rawLang ?? 'text') as CodeLang"
+        :line-numbers="true"
         @update:model-value="request.body.raw = $event"
       />
 
@@ -183,6 +184,7 @@ function removeFormRow(f: FormField) {
           class="gq-q"
           :model-value="request.body.graphql?.query ?? ''"
           language="text"
+          :line-numbers="true"
           @update:model-value="request.body.graphql!.query = $event"
         />
         <label class="gq-label">Variables（JSON）</label>
@@ -190,6 +192,7 @@ function removeFormRow(f: FormField) {
           class="gq-v"
           :model-value="request.body.graphql?.variables ?? ''"
           language="json"
+          :line-numbers="true"
           @update:model-value="request.body.graphql!.variables = $event"
         />
       </div>
@@ -242,23 +245,24 @@ function removeFormRow(f: FormField) {
   gap: 10px;
   padding: 10px;
 }
+/* 与 KvEditor 同款 Postman 平铺表格 */
 .fd {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
+  padding: 4px 16px 12px;
   overflow: auto;
 }
 .fd-head,
 .fd-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .fd-head {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-faint);
-  padding: 0 2px;
+  letter-spacing: 0.2px;
+  padding: 8px 8px 6px;
 }
 .fd-cb {
   width: 13px;
@@ -279,7 +283,13 @@ function removeFormRow(f: FormField) {
   flex-shrink: 0;
 }
 .fd-row {
-  height: 32px;
+  height: 38px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: background var(--ease);
+}
+.fd-row:hover {
+  background: var(--bg-hover);
 }
 .fd-row input[type='checkbox'] {
   accent-color: var(--brand);
@@ -288,33 +298,32 @@ function removeFormRow(f: FormField) {
   width: 13px;
   height: 13px;
 }
-/* 与 .kve-in 一致：未聚焦也有 elev 底 + 边框，聚焦品牌色（原 transparent 底在深色下隐形） */
+/* 与 .kve-in 一致：平铺单元格，行 hover 出底、聚焦品牌色下划线 */
 .fd-in {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: 100%;
   padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elev);
+  border: none;
+  background: transparent;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--mono);
   outline: none;
-  transition: border-color var(--ease), box-shadow var(--ease);
+  transition: background var(--ease), box-shadow var(--ease);
 }
 .fd-in:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-weak);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 -2px 0 var(--brand);
 }
 .fd-type {
   width: 56px;
-  height: 26px;
+  height: 30px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-elev);
+  background: var(--bg-sunken);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: 12px;
   padding: 0 4px;
   outline: none;
   cursor: pointer;
@@ -347,20 +356,32 @@ function removeFormRow(f: FormField) {
 }
 .fd-del {
   opacity: 0;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
+  transition: opacity var(--ease);
 }
 .fd-row:hover .fd-del {
   opacity: 1;
 }
+/* 加行用幽灵按钮，与 .kve-add 一致 */
 .fd-add {
   align-self: flex-start;
-  margin-top: 2px;
+  margin-top: 6px;
   font-size: 12px;
-  height: 26px;
+  height: 28px;
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+}
+.fd-add:hover {
+  border-color: transparent;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .fd-row.disabled .fd-in,
 .fd-row.disabled .fd-path {

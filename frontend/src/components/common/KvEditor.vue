@@ -79,32 +79,39 @@ function removeRow(idx: number) {
 </template>
 
 <style scoped>
+/* Postman 式平铺表格：无单元格边框，行分隔用 hairline，行 hover 出底 */
 .kve {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 10px;
+  padding: 4px 16px 12px;
 }
 .kve-head,
 .kve-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .kve-head {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-faint);
-  padding: 0 2px;
+  letter-spacing: 0.2px;
+  padding: 8px 8px 6px;
 }
 .kve-head > span:not(:first-child):not(:last-child) {
   flex: 1;
 }
 .kve-sp {
-  width: 24px;
+  width: 30px;
   flex-shrink: 0;
 }
 .kve-row {
-  height: 32px;
+  height: 38px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: background var(--ease);
+}
+.kve-row:hover {
+  background: var(--bg-hover);
 }
 .kve-cb {
   width: 13px;
@@ -117,24 +124,23 @@ function removeRow(idx: number) {
   width: 13px;
   height: 13px;
 }
-/* 未聚焦也要有明确的输入框轮廓（transparent 底+边框在深色下隐形，实测反馈） */
+/* 平铺单元格：无边框，聚焦时"字段层底 + 品牌色下划线"（对齐 Postman 单元格焦点态） */
 .kve-in {
   flex: 1;
   min-width: 0;
-  height: 26px;
+  height: 100%;
   padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elev);
+  border: none;
+  background: transparent;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--mono);
   outline: none;
-  transition: border-color var(--ease), background var(--ease), box-shadow var(--ease);
+  transition: background var(--ease), box-shadow var(--ease);
 }
 .kve-in:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-weak);
+  background: var(--bg-sunken);
+  box-shadow: inset 0 -2px 0 var(--brand);
 }
 .kve-row.disabled .kve-in,
 .kve-row.disabled .kve-del {
@@ -145,34 +151,42 @@ function removeRow(idx: number) {
   background: var(--brand-weak);
 }
 .kve-in.kv-var:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px var(--brand-weak);
+  box-shadow: inset 0 -2px 0 var(--brand);
 }
 .kve-in.kv-var-bad {
   color: var(--error);
   text-decoration: underline wavy var(--error);
 }
 .kve-in.kv-var-bad:focus {
-  border-color: var(--error);
-  box-shadow: 0 0 0 2px var(--error-weak);
+  box-shadow: inset 0 -2px 0 var(--error);
 }
 .kve-del {
   opacity: 0;
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
+  transition: opacity var(--ease);
 }
 .kve-row:hover .kve-del {
   opacity: 1;
 }
+/* 加行用幽灵按钮（Postman 的 "+ Add another ..." 质感），不用实心 .btn */
 .kve-add {
   align-self: flex-start;
-  margin-top: 2px;
+  margin-top: 6px;
   font-size: 12px;
-  height: 26px;
+  height: 28px;
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim);
+}
+.kve-add:hover {
+  border-color: transparent;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 </style>

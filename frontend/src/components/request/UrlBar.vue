@@ -88,7 +88,7 @@ function applyCurl(req: Request) {
         ref="mirrorEl"
         class="ub-mirror"
         aria-hidden="true"
-        :style="{ paddingInlineStart: hintScheme ? 'calc(10px + 8ch)' : '10px' }"
+        :style="{ paddingInlineStart: hintScheme ? 'calc(14px + 8ch)' : '14px' }"
       ><span v-for="(seg, i) in mirrorSegs" :key="i" :class="seg.cls">{{ seg.text }}</span></pre>
       <input
         ref="inputEl"
@@ -96,7 +96,7 @@ function applyCurl(req: Request) {
         v-model="request.url"
         spellcheck="false"
         autocomplete="off"
-        :style="{ paddingInlineStart: hintScheme ? 'calc(10px + 8ch)' : '10px' }"
+        :style="{ paddingInlineStart: hintScheme ? 'calc(14px + 8ch)' : '14px' }"
         :placeholder="L.request.urlPlaceholder"
         :title="urlTitle"
         @keydown="onKey"
@@ -136,8 +136,8 @@ function applyCurl(req: Request) {
       <X :size="13" /> {{ L.request.cancel }}
     </button>
     <button v-else class="btn btn-primary ub-send" @click="emit('send')">
-      <Loader2 v-if="sending" :size="13" class="spin" />
-      <Send v-else :size="13" /> {{ L.request.send }}
+      <Loader2 v-if="sending" :size="14" class="spin" />
+      <Send v-else :size="14" /> {{ L.request.send }}
     </button>
     <CurlDialog v-if="showCurl" :request="request" @apply="applyCurl" @close="showCurl = false" />
   </div>
@@ -147,8 +147,8 @@ function applyCurl(req: Request) {
 .ub {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px 8px;
+  gap: 10px;
+  padding: 12px 16px 10px;
 }
 .ub-box {
   position: relative;
@@ -163,18 +163,19 @@ function applyCurl(req: Request) {
 }
 .ub-box:focus-within {
   border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-weak);
 }
 .ub-scheme,
 .ub-mirror,
 .ub-in {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   line-height: var(--urlbar-h);
   white-space: nowrap;
 }
 .ub-scheme {
   position: absolute;
-  inset: 0 auto 0 10px;
+  inset: 0 auto 0 14px;
   color: var(--text-faint);
   pointer-events: none;
   width: 8ch;
@@ -183,7 +184,7 @@ function applyCurl(req: Request) {
   position: absolute;
   inset: 0;
   margin: 0;
-  padding: 0 10px;
+  padding: 0 14px;
   box-sizing: border-box;
   color: var(--text);
   overflow: hidden;
@@ -194,7 +195,7 @@ function applyCurl(req: Request) {
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 0 10px;
+  padding: 0 14px;
   box-sizing: border-box;
   border: none;
   background: transparent;
@@ -212,12 +213,16 @@ function applyCurl(req: Request) {
   color: var(--error);
   text-decoration: underline wavy var(--error);
 }
+/* Postman 式"主角"按钮：更大更重，一眼定位主操作 */
 .ub-send {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 9px 22px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
 }
 .spin {
   animation: spin 1s linear infinite;

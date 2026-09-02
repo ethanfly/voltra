@@ -193,8 +193,8 @@ async function copyRequest(tabId: ID) {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 6px 0 10px;
+  height: 32px;
+  padding: 0 8px 0 12px;
   margin-right: 2px;
   border-radius: var(--radius);
   border: 1px solid transparent;
@@ -243,10 +243,10 @@ async function copyRequest(tabId: ID) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;
