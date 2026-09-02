@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // 标签栏：方法色标 / WS 标、dirty 圆点、中键关闭、DnD 排序、+ 新建
-import { ref, computed } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { Plus, X, Globe, Wifi } from 'lucide-vue-next'
 import Dropdown from '../common/Dropdown.vue'
 import ContextMenu, { type MenuItem } from '../common/ContextMenu.vue'
@@ -41,6 +41,29 @@ function methodClass(t: LiveTab): string {
 
 function tabLabel(t: LiveTab): string {
   return t.request.name || (t.request.protocol === 'ws' ? 'WebSocket' : '未命名请求')
+}
+
+// ---------- 标签过多时：活跃标签自动滚入视野 + 滚轮横向滚动 ----------
+// 容器 overflow-x:auto 但滚动条隐藏，新开标签若落在可视区外就"被完全遮挡"（用户实测）。
+// 浏览器同款解法：切到哪个标签就把它滚进视野；再让竖直滚轮驱动横向滚动（触控板横滑原生可用）
+const tabsEl = ref<HTMLElement | null>(null)
+
+watch(
+  () => tabs.activeTabId,
+  async () => {
+    await nextTick()
+    tabsEl.value
+      ?.querySelector<HTMLElement>('.tab.active')
+      ?.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' })
+  },
+  { immediate: true },
+)
+
+function onWheel(e: WheelEvent) {
+  const el = tabsEl.value
+  if (!el || el.scrollWidth <= el.clientWidth) return
+  e.preventDefault()
+  el.scrollLeft += e.deltaY + e.deltaX
 }
 
 // 拖拽排序
@@ -111,7 +134,7 @@ async function copyRequest(tabId: ID) {
 
 <template>
   <div class="tabstrip">
-    <div class="tabs">
+    <div ref="tabsEl" class="tabs" @wheel="onWheel">
       <div
         v-for="(t, i) in tabs.tabs"
         :key="t.tabId"
