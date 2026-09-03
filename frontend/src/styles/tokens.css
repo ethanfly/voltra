@@ -62,7 +62,8 @@
   --border: #33343f;
   --border-strong: #4b4d5c;
   --text: #eaeaef;
-  --text-dim: #a3a4b1;
+  /* 次级文字从 #a3a4b1 提亮：13px CJK 字形墨量小，旧值下"脚本/设置"等中文标签明显发暗（实测反馈） */
+  --text-dim: #b7b8c5;
   --text-faint: #74758a;
   --brand: #8b7dff;
   --brand-weak: #2d2856;

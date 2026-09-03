@@ -174,6 +174,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
   border: none;
   background: transparent;
   color: var(--text-dim);
+  /* 500 字重：13px 下 CJK 笔画细，regular 在暗色下发虚（"脚本/设置"比 Latin 标签暗一截） */
+  font-weight: 500;
   font-size: 13px;
   padding: 9px 12px 10px;
   cursor: pointer;
