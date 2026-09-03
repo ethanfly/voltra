@@ -21,7 +21,8 @@ import {
   historyKeymap,
   indentWithTab,
 } from '@codemirror/commands'
-import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching } from '@codemirror/language'
+import { syntaxHighlighting, HighlightStyle, indentOnInput, bracketMatching } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { json } from '@codemirror/lang-json'
 import { xml } from '@codemirror/lang-xml'
@@ -113,6 +114,22 @@ const baseTheme = EditorView.theme({
   },
 })
 
+// 语法高亮：不用 CM6 的 defaultHighlightStyle（固定浅底深色板，暗色主题下发暗看不清），
+// 改走 tokens.css 的 --syn-* 变量（明暗两套 VS Code 风格板），随 data-theme 自动切换
+const appHighlightStyle = HighlightStyle.define([
+  { tag: [t.tagName, t.keyword, t.operatorKeyword, t.definitionKeyword, t.null], color: 'var(--syn-kw)' },
+  { tag: [t.propertyName, t.attributeName, t.variableName, t.name, t.deleted, t.character, t.macroName], color: 'var(--syn-key)' },
+  { tag: [t.string, t.inserted, t.attributeValue], color: 'var(--syn-str)' },
+  { tag: [t.number, t.atom, t.bool], color: 'var(--syn-num)' },
+  { tag: [t.typeName, t.className, t.namespace], color: 'var(--syn-type)' },
+  { tag: [t.operator, t.url, t.escape, t.regexp, t.link], color: 'var(--syn-op)' },
+  { tag: [t.meta, t.contentSeparator, t.processingInstruction, t.punctuation, t.monospace], color: 'var(--syn-pun)' },
+  { tag: [t.comment], color: 'var(--syn-com)' },
+  { tag: [t.strong], fontWeight: 'bold' },
+  { tag: [t.emphasis], fontStyle: 'italic' },
+  { tag: [t.strikethrough], textDecoration: 'line-through' },
+])
+
 const wrap = ref<HTMLElement | null>(null)
 let view: EditorView | null = null
 
@@ -152,7 +169,7 @@ function buildExtensions(): Extension[] {
     baseTheme,
     readOnlyComp.of(EditorState.readOnly.of(props.readOnly)),
     EditorView.lineWrapping,
-    syntaxHighlighting(defaultHighlightStyle),
+    syntaxHighlighting(appHighlightStyle),
     keymap.of([...defaultKeymap, ...historyKeymap, ...closeBracketsKeymap, ...completionKeymap, indentWithTab]),
     history(),
     indentOnInput(),

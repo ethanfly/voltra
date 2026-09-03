@@ -47,6 +47,15 @@
   --brand-weak: #efedfd;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(20, 20, 40, 0.1);
   --scrollbar-thumb: var(--border-strong);
+  /* 代码/JSON 语法高亮（浅色）：VS Code Light+ 同款，白底深色系 */
+  --syn-kw: #0000ff;
+  --syn-key: #001080;
+  --syn-str: #a31515;
+  --syn-num: #098658;
+  --syn-type: #267f99;
+  --syn-op: #393a44;
+  --syn-pun: #393a44;
+  --syn-com: #008000;
   color-scheme: light;
 }
 
@@ -69,6 +78,16 @@
   --brand-weak: #2d2856;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
   --scrollbar-thumb: var(--border-strong);
+  /* 代码/JSON 语法高亮（暗色）：VS Code Dark+ 同款，深底浅色系。
+     之前用 CM6 defaultHighlightStyle（固定浅底深色板），暗色下整体发暗看不清（实测反馈） */
+  --syn-kw: #569cd6;
+  --syn-key: #9cdcfe;
+  --syn-str: #ce9178;
+  --syn-num: #b5cea8;
+  --syn-type: #4ec9b0;
+  --syn-op: #c5c8d4;
+  --syn-pun: #a9acb8;
+  --syn-com: #6a9955;
   color-scheme: dark;
 }
 
