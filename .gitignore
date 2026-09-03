@@ -14,6 +14,7 @@ build/android/gen/
 !build/**/*.png
 # 开源宣传截图
 !screenshots/*.png
+!site/*.png
 /docs/*
 .idea/
 .DS_Store
