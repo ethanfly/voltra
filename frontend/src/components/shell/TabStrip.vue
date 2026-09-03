@@ -198,7 +198,8 @@ async function copyRequest(tabId: ID) {
   display: flex;
   align-items: center;
   background: var(--bg-elev);
-  border-bottom: 1px solid var(--border);
+  /* 标签栏与编辑区分隔：--border 在白底上 1px 几乎不可见（实测反馈），用 strong 档 */
+  border-bottom: 1px solid var(--border-strong);
 }
 .tabs {
   flex: 1;
