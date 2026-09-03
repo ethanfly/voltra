@@ -258,30 +258,12 @@ function removeFormRow(f: FormField) {
   align-items: center;
   gap: 8px;
 }
+/* 1:1 Postman（与 KvEditor 一致）：表头无底色，只有一条全宽下划线，列间不画竖线 */
 .fd-head {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
-  letter-spacing: 0.2px;
-  padding: 8px 8px 6px;
-  background: var(--bg-well);
-  border-radius: var(--radius-sm);
-  border-bottom: 1px solid var(--border);
-}
-/* 列分隔线（与 KvEditor 一致）：复选 | key 之间 1px 竖线；
-   type 列靠 select 自身的描边分隔，value 为末列不画线 */
-.fd-head > span {
-  display: flex;
-  align-items: center;
-  align-self: stretch;
-}
-.fd-cb,
-.fd-row input[type='checkbox'] {
-  border-right: 1px solid var(--border);
-}
-.fd-head > span:nth-child(2),
-.fd-head > span:nth-child(3),
-.fd-row input:nth-of-type(2) {
-  border-right: 1px solid var(--border);
+  padding: 8px 8px 7px;
+  border-bottom: 1px solid var(--border-strong);
 }
 .fd-cb {
   width: 13px;
@@ -331,8 +313,8 @@ function removeFormRow(f: FormField) {
   outline: none;
   transition: background var(--ease), box-shadow var(--ease);
 }
+/* 1:1 Postman：聚焦只出品牌色下划线，单元格不变底 */
 .fd-in:focus {
-  background: var(--bg-well);
   box-shadow: inset 0 -2px 0 var(--brand);
 }
 .fd-type {

@@ -91,38 +91,16 @@ function removeRow(idx: number) {
   align-items: center;
   gap: 8px;
 }
+/* 1:1 Postman：表头无底色（与画布同色），只有一条全宽 1px 下划线；
+   列之间不画竖线（纯留白分隔）——之前加灰底+竖线是过度设计，实机对比图确认去掉 */
 .kve-head {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-dim);
-  letter-spacing: 0.2px;
-  padding: 8px 8px 6px;
-  background: var(--bg-well);
-  border-radius: var(--radius-sm);
-  border-bottom: 1px solid var(--border);
+  padding: 8px 8px 7px;
+  border-bottom: 1px solid var(--border-strong);
 }
 .kve-head > span:not(:first-child):not(:last-child) {
   flex: 1;
-}
-/* 列分隔线（对齐 Postman 参数表）：复选 | key | value | desc 之间各 1px 竖线。
-   行内画在"左列"右缘；最后一列（value/desc）不画，删除按钮列之前留白。 */
-.kve-head > span {
-  display: flex;
-  align-items: center;
-  align-self: stretch;
-}
-.kve-cb,
-.kve-row input[type='checkbox'] {
-  border-right: 1px solid var(--border);
-}
-.kve-head > span:nth-child(2),
-.kve-row .kve-in {
-  border-right: 1px solid var(--border);
-}
-.kve-row .kve-in:last-of-type {
-  border-right: none;
-}
-.kve-head.desc > span:nth-child(3) {
-  border-right: 1px solid var(--border);
 }
 .kve-sp {
   width: 30px;
@@ -162,8 +140,8 @@ function removeRow(idx: number) {
   outline: none;
   transition: background var(--ease), box-shadow var(--ease);
 }
+/* 1:1 Postman：聚焦只出品牌色下划线，单元格不变底 */
 .kve-in:focus {
-  background: var(--bg-well);
   box-shadow: inset 0 -2px 0 var(--brand);
 }
 .kve-row.disabled .kve-in,
