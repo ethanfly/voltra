@@ -6,13 +6,13 @@
 name: "voltra"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.1.0"
+version: "0.2.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "A voltra application"
-vendor: "My Company"
-homepage: "https://wails.io"
+description: "轻量级跨平台 API 接口调试工具（本地优先，Wails v3 + Go + Vue 3）"
+vendor: "ramboLiang"
+homepage: "https://github.com/ramboLiang/voltra"
 license: "MIT"
 release: "1"
 
