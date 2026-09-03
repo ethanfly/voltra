@@ -40,7 +40,7 @@
 
 ## 快速开始
 
-**下载预构建包**：前往 [GitHub Releases](https://github.com/ramboLiang/voltra/releases) 或 [Gitee Releases](https://gitee.com/ramboLiang/voltra/releases)（当前提供 macOS 构建，x86_64，Apple Silicon 经 Rosetta 2 运行）。
+**下载预构建包**：前往 [GitHub Releases](https://github.com/ramboLiang/voltra/releases) 或 [Gitee Releases](https://gitee.com/ramboLiang/voltra/releases)（当前提供 macOS 通用版（Apple Silicon + Intel）与 Windows x86_64 构建）。
 
 **从源码构建**：
 
