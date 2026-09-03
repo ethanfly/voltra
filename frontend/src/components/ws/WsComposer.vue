@@ -235,7 +235,7 @@ watch(
   font-size: 12px;
 }
 .wc-snip:hover {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
 }
 .wc-snip-name {
   flex: 1;

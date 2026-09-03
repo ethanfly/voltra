@@ -260,9 +260,28 @@ function removeFormRow(f: FormField) {
 }
 .fd-head {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-dim);
   letter-spacing: 0.2px;
   padding: 8px 8px 6px;
+  background: var(--bg-well);
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+}
+/* 列分隔线（与 KvEditor 一致）：复选 | key 之间 1px 竖线；
+   type 列靠 select 自身的描边分隔，value 为末列不画线 */
+.fd-head > span {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+.fd-cb,
+.fd-row input[type='checkbox'] {
+  border-right: 1px solid var(--border);
+}
+.fd-head > span:nth-child(2),
+.fd-head > span:nth-child(3),
+.fd-row input:nth-of-type(2) {
+  border-right: 1px solid var(--border);
 }
 .fd-cb {
   width: 13px;
@@ -313,7 +332,7 @@ function removeFormRow(f: FormField) {
   transition: background var(--ease), box-shadow var(--ease);
 }
 .fd-in:focus {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   box-shadow: inset 0 -2px 0 var(--brand);
 }
 .fd-type {

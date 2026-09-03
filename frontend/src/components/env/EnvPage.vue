@@ -217,7 +217,7 @@ function commitGlobal() {
 .vp-cta {
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   padding: 16px;
   display: flex;
   flex-direction: column;

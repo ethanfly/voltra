@@ -93,12 +93,36 @@ function removeRow(idx: number) {
 }
 .kve-head {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-dim);
   letter-spacing: 0.2px;
   padding: 8px 8px 6px;
+  background: var(--bg-well);
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
 }
 .kve-head > span:not(:first-child):not(:last-child) {
   flex: 1;
+}
+/* 列分隔线（对齐 Postman 参数表）：复选 | key | value | desc 之间各 1px 竖线。
+   行内画在"左列"右缘；最后一列（value/desc）不画，删除按钮列之前留白。 */
+.kve-head > span {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+.kve-cb,
+.kve-row input[type='checkbox'] {
+  border-right: 1px solid var(--border);
+}
+.kve-head > span:nth-child(2),
+.kve-row .kve-in {
+  border-right: 1px solid var(--border);
+}
+.kve-row .kve-in:last-of-type {
+  border-right: none;
+}
+.kve-head.desc > span:nth-child(3) {
+  border-right: 1px solid var(--border);
 }
 .kve-sp {
   width: 30px;
@@ -139,7 +163,7 @@ function removeRow(idx: number) {
   transition: background var(--ease), box-shadow var(--ease);
 }
 .kve-in:focus {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   box-shadow: inset 0 -2px 0 var(--brand);
 }
 .kve-row.disabled .kve-in,

@@ -192,7 +192,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
 }
 .re-tab-count {
   font-size: 11px;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border-radius: 8px;
   padding: 1px 6px;
   color: var(--text-faint);

@@ -33,7 +33,7 @@ const headers = props.response.headers ?? []
   border-bottom: 1px solid var(--border);
 }
 .hh-row:nth-child(odd) {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
 }
 .hh-key {
   color: var(--brand);

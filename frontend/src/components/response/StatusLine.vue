@@ -21,8 +21,9 @@ const statusClass = computed(() => {
 
 <template>
   <div class="sl">
+    <!-- resp.Status 已含状态码（Go "200 OK"），直接渲染，缺失时退回 statusCode -->
     <span :class="['sl-status', statusClass]">
-      {{ response.statusCode }} {{ response.status }}
+      {{ response.status || response.statusCode }}
     </span>
     <span class="sl-meta">{{ response.durationMs }} ms</span>
     <span class="sl-meta">{{ formatBytes(response.sizeBytes) }}</span>

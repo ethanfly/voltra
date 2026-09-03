@@ -25,7 +25,7 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 <style scoped>
 .segmented {
   display: inline-flex;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 2px;

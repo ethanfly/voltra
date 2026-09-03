@@ -155,7 +155,7 @@ function applyCurl(req: Request) {
   flex: 1;
   min-width: 0;
   height: var(--urlbar-h);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--bg-sunken);
   transition: border-color var(--ease);

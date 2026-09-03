@@ -316,7 +316,7 @@ const hexSummary = computed(() => (isBinary.value ? binaryHexSummary(text.value)
   min-height: 0;
   overflow: auto;
   padding: 8px 10px;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-family: var(--mono);

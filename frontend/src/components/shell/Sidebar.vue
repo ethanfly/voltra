@@ -113,7 +113,8 @@ function doClearHistory() {
   flex-direction: column;
   min-height: 0;
   background: var(--bg-elev);
-  border-right: 0;
+  /* 浅色主题下画布与面板同为纯白，侧栏靠 1px 描边与主区分隔（Splitter 悬停时才出线） */
+  border-right: 1px solid var(--border);
 }
 .sb-head {
   height: 34px;

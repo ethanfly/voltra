@@ -216,7 +216,7 @@ function fmtTime(ts: number): string {
 .hp-code {
   padding: 0 4px;
   border-radius: 3px;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
 }
 .hp-act {
   display: flex;
@@ -236,7 +236,7 @@ function fmtTime(ts: number): string {
   opacity: 1;
 }
 .hp-act:hover {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   color: var(--text);
 }
 .hp-foot {

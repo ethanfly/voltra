@@ -34,7 +34,7 @@ defineProps<{
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   display: grid;
   place-items: center;
   margin-bottom: 14px;

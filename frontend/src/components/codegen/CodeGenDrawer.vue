@@ -207,7 +207,7 @@ async function onCopy() {
 .cg-mode-seg {
   display: inline-flex;
   padding: 2px;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -306,7 +306,7 @@ async function onCopy() {
 .cg-lang-count {
   font-size: 10px;
   color: var(--text-faint);
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border-radius: 999px;
   padding: 1px 6px;
   flex-shrink: 0;
@@ -366,7 +366,7 @@ async function onCopy() {
   white-space: nowrap;
 }
 .cg-menu-item:hover {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
 }
 .cg-menu-item.active {
   color: var(--brand);

@@ -71,7 +71,7 @@ const text = computed(() => L.value.errorKind[kind.value] ?? L.value.errorKind.o
 .ec-detail pre {
   margin: 6px 0 0;
   padding: 8px;
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border-radius: var(--radius-sm);
   font-size: 11px;
   font-family: var(--mono);

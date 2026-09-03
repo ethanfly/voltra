@@ -217,7 +217,7 @@ watch(
   gap: 3px;
 }
 .wt-in .wt-bubble {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   border: 1px solid var(--border);
 }
 .wt-out .wt-bubble {

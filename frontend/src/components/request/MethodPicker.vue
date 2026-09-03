@@ -27,7 +27,7 @@ const cls = computed(() => {
 .mp {
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--bg-sunken);
   color: inherit;

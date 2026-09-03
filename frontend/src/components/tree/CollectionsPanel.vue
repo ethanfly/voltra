@@ -535,7 +535,7 @@ async function onExportProject() {
   white-space: nowrap;
 }
 .cp-menu-item:hover {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
 }
 .cp-nohit {
   padding: 16px 12px;

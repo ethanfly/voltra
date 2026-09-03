@@ -492,7 +492,7 @@ const inheritResolvesNone = computed(
   cursor: pointer;
 }
 .at-menu-item:hover {
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   color: var(--text);
 }
 .at-menu-item.active {
@@ -534,7 +534,7 @@ const inheritResolvesNone = computed(
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg-sunken);
+  background: var(--bg-well);
   font-family: var(--mono);
   font-size: 11px;
   color: var(--text-dim);
