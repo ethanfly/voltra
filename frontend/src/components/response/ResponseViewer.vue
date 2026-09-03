@@ -79,6 +79,7 @@ const tabs = computed(() => {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  border-top: 1px solid var(--border);
 }
 .rv-tabs {
   display: flex;
