@@ -427,17 +427,21 @@ func TestSignOAuth1(t *testing.T) {
 	if err := signOAuth1(req, o, nil, now, "7d8f3e4a"); err != nil {
 		t.Fatalf("signOAuth1: %v", err)
 	}
-	q := req.URL.Query()
+	q := parseOAuthHeader(t, req.Header.Get("Authorization"))
+	if req.URL.RawQuery != "file=vacation.jpg" {
+		t.Errorf("URL query 不应被改写: %s", req.URL.RawQuery)
+	}
 	if q.Get("oauth_timestamp") != "137131201" || q.Get("oauth_nonce") != "7d8f3e4a" ||
 		q.Get("oauth_version") != "1.0" || q.Get("oauth_token") != "nnch734d00sl2jdk" {
-		t.Errorf("oauth_* 参数不完整: %s", req.URL.RawQuery)
+		t.Errorf("oauth_* 参数不完整: %v", q)
 	}
-	// 交叉自验：用最终 query（去掉签名本身）重算 base string + 签名，应等于写入的值
+	// 交叉自验：头里参数（去掉签名）+ URL query 重算，应等于写入的值
 	sigInQuery := q.Get("oauth_signature")
 	if sigInQuery == "" {
-		t.Fatal("query 缺少 oauth_signature")
+		t.Fatal("Authorization 缺少 oauth_signature")
 	}
 	q.Del("oauth_signature")
+	q.Set("file", "vacation.jpg")
 	base := oauth1BaseString("GET", "http://photos.example.net/photos", q)
 	if want := oauth1Signature(base, o.ConsumerSecret, o.TokenSecret, "HMAC-SHA1"); sigInQuery != want {
 		t.Errorf("交叉自验失败: %s != %s", sigInQuery, want)
@@ -474,7 +478,7 @@ func TestSignOAuth1(t *testing.T) {
 		if err := signOAuth1(r, o, []byte(body), now, "n3"); err != nil {
 			t.Fatalf("signOAuth1: %v", err)
 		}
-		return r.URL.Query().Get("oauth_signature")
+		return parseOAuthHeader(t, r.Header.Get("Authorization")).Get("oauth_signature")
 	}
 	if s1, s2 := signed("a=1&b=2"), signed("a=1&b=3"); s1 == s2 {
 		t.Error("body 参与签名：不同 body 应产生不同签名")
@@ -487,11 +491,26 @@ func TestSignOAuth1(t *testing.T) {
 		if err := signOAuth1(r, o, []byte(body), now, "n4"); err != nil {
 			t.Fatalf("signOAuth1: %v", err)
 		}
-		return r.URL.Query().Get("oauth_signature")
+		return parseOAuthHeader(t, r.Header.Get("Authorization")).Get("oauth_signature")
 	}
 	if s1, s2 := signedRaw(`{"a":1}`), signedRaw(`{"a":2}`); s1 != s2 {
 		t.Error("raw body 不应参与签名，不同 body 签名应相同")
 	}
+}
+
+// parseOAuthHeader 把 `OAuth k="v", ...` 解成 url.Values（值已百分号解码）
+func parseOAuthHeader(t *testing.T, h string) url.Values {
+	t.Helper()
+	out := url.Values{}
+	for _, p := range strings.Split(strings.TrimPrefix(h, "OAuth "), ", ") {
+		k, v, _ := strings.Cut(p, "=")
+		dv, err := url.PathUnescape(strings.Trim(v, `"`))
+		if err != nil {
+			t.Fatalf("头值解码失败 %s: %v", p, err)
+		}
+		out.Add(k, dv)
+	}
+	return out
 }
 
 // ---------- AWS Signature V4 ----------

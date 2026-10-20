@@ -28,6 +28,7 @@ type WSService struct {
 
 type wsConnection struct {
 	mu         sync.Mutex // 保护 conn / hbStop / userClosed
+	writeMu    sync.Mutex // gorilla 只允许一个并发写者：心跳与 Send 同时写会 panic
 	conn       *websocket.Conn
 	hbStop     chan struct{}
 	userClosed bool
@@ -62,11 +63,11 @@ type WSConnectOptions struct {
 // 前端用 Events.On("ws:message", callback) 监听
 type WSMessageEvent struct {
 	ConnID      string `json:"connId"`
-	Message     string `json:"message"`      // 文本原样；二进制帧为 base64
+	Message     string `json:"message"` // 文本原样；二进制帧为 base64
 	IsBinary    bool   `json:"isBinary"`
-	IsBase64    bool   `json:"isBase64"`     // true 时 Message 需要前端 base64 解码
-	Direction   string `json:"direction"`    // in | out
-	IsHeartbeat bool   `json:"isHeartbeat"`  // 心跳产生的消息
+	IsBase64    bool   `json:"isBase64"`    // true 时 Message 需要前端 base64 解码
+	Direction   string `json:"direction"`   // in | out
+	IsHeartbeat bool   `json:"isHeartbeat"` // 心跳产生的消息
 	Timestamp   int64  `json:"timestamp"`
 }
 
@@ -111,9 +112,19 @@ func (w *WSService) Connect(url string, headers []KVPair, opts WSConnectOptions)
 	if opts.HeartbeatEnabled {
 		w.startHeartbeat(connID, entry)
 	}
-	go w.readLoop(connID, entry)
+	go w.runConn(connID, entry)
 
 	return connID, nil
+}
+
+func (c *wsConnection) write(msgType int, data []byte) error {
+	conn := c.getConn()
+	if conn == nil {
+		return fmt.Errorf("连接断开中，暂不可发送")
+	}
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	return conn.WriteMessage(msgType, data)
 }
 
 func (c *wsConnection) getConn() *websocket.Conn {
@@ -190,7 +201,7 @@ func (w *WSService) heartbeatLoop(connID string, entry *wsConnection, stop chan 
 			_ = conn.WriteControl(websocket.PingMessage, nil, deadline)
 			continue
 		}
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+		if err := entry.write(websocket.TextMessage, []byte(msg)); err != nil {
 			continue
 		}
 		w.emitMessage(WSMessageEvent{
@@ -203,32 +214,35 @@ func (w *WSService) heartbeatLoop(connID string, entry *wsConnection, stop chan 
 	}
 }
 
-func (w *WSService) readLoop(connID string, entry *wsConnection) {
+// runConn 是每个连接唯一的后台 goroutine：读 → 断线 →（可选）重连 → 再读。
+// 旧实现 readLoop 里 go reconnectLoop、reconnectLoop 又同步调 readLoop，每次断线都会多出一个重连循环
+func (w *WSService) runConn(connID string, entry *wsConnection) {
+	for {
+		err := w.readLoop(connID, entry)
+		if entry.isUserClosed() {
+			return // Close 已负责发状态事件并移除
+		}
+		if !entry.opts.AutoReconnect {
+			w.stopHeartbeat(entry)
+			w.removeConn(connID)
+			w.emitStatus(connID, "closed", err.Error())
+			return
+		}
+		// 保持在 map 中，前端可通过 connID 继续发送（断开期间会提示未连接）
+		w.emitStatus(connID, "reconnecting", err.Error())
+		if !w.reconnect(connID, entry) {
+			return
+		}
+	}
+}
+
+// readLoop 读到出错为止，返回读错误；重连与否由 runConn 决定
+func (w *WSService) readLoop(connID string, entry *wsConnection) error {
 	conn := entry.getConn()
 	for {
-		select {
-		case <-entry.stop:
-			return
-		default:
-		}
-
 		msgType, data, err := conn.ReadMessage()
 		if err != nil {
-			if entry.isUserClosed() {
-				// Close 已负责发状态事件并移除
-				return
-			}
-			if entry.opts.AutoReconnect {
-				// 保持在 map 中，前端可通过 connID 继续发送（断开期间会提示未连接）
-				w.emitStatus(connID, "reconnecting", err.Error())
-				go w.reconnectLoop(connID, entry)
-			} else {
-				w.mu.Lock()
-				delete(w.conns, connID)
-				w.mu.Unlock()
-				w.emitStatus(connID, "closed", err.Error())
-			}
-			return
+			return err
 		}
 
 		evt := WSMessageEvent{
@@ -246,8 +260,11 @@ func (w *WSService) readLoop(connID string, entry *wsConnection) {
 	}
 }
 
-// reconnectLoop 断线后按指数退避重新握手，成功后复用原 connID 继续收发
-func (w *WSService) reconnectLoop(connID string, entry *wsConnection) {
+// reconnect 断线后按指数退避重新握手，成功后复用原 connID；用户关闭则返回 false
+func (w *WSService) reconnect(connID string, entry *wsConnection) bool {
+	if old := entry.getConn(); old != nil {
+		old.Close()
+	}
 	base := time.Duration(entry.opts.ReconnectIntervalMs) * time.Millisecond
 	if base <= 0 {
 		base = 2 * time.Second
@@ -256,17 +273,12 @@ func (w *WSService) reconnectLoop(connID string, entry *wsConnection) {
 	interval := base
 
 	for {
-		if entry.isUserClosed() {
-			w.removeConn(connID)
-			return
-		}
 		// 可被 Close 中断的等待
 		timer := time.NewTimer(interval)
 		select {
 		case <-entry.stop:
 			timer.Stop()
-			w.removeConn(connID)
-			return
+			return false
 		case <-timer.C:
 		}
 
@@ -278,22 +290,17 @@ func (w *WSService) reconnectLoop(connID string, entry *wsConnection) {
 			}
 			continue
 		}
-
-		// 换上新连接
 		entry.setConn(conn)
-		interval = base
+		// 拨号期间用户已 Close：Close 关的是旧 conn，新 conn 要自己关掉
+		if entry.isUserClosed() {
+			conn.Close()
+			return false
+		}
 		w.emitStatus(connID, "connected", "重连成功")
 		if entry.opts.HeartbeatEnabled {
 			w.startHeartbeat(connID, entry)
 		}
-
-		// 同步进入读循环；返回时若仍是自动重连场景则继续循环
-		w.readLoop(connID, entry)
-
-		if entry.isUserClosed() {
-			w.removeConn(connID)
-			return
-		}
+		return true
 	}
 }
 
@@ -309,11 +316,7 @@ func (w *WSService) Send(connID string, message string) error {
 	if entry == nil {
 		return fmt.Errorf("连接不存在或已关闭: %s", connID)
 	}
-	conn := entry.getConn()
-	if conn == nil {
-		return fmt.Errorf("连接断开中，暂不可发送: %s", connID)
-	}
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+	if err := entry.write(websocket.TextMessage, []byte(message)); err != nil {
 		return err
 	}
 	w.emitMessage(WSMessageEvent{
@@ -331,15 +334,11 @@ func (w *WSService) SendBinary(connID string, base64Data string) error {
 	if entry == nil {
 		return fmt.Errorf("连接不存在或已关闭: %s", connID)
 	}
-	conn := entry.getConn()
-	if conn == nil {
-		return fmt.Errorf("连接断开中，暂不可发送: %s", connID)
-	}
 	data, err := base64.StdEncoding.DecodeString(base64Data)
 	if err != nil {
 		return fmt.Errorf("二进制数据不是合法 base64: %v", err)
 	}
-	if err := conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+	if err := entry.write(websocket.BinaryMessage, data); err != nil {
 		return err
 	}
 	w.emitMessage(WSMessageEvent{
