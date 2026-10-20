@@ -31,6 +31,7 @@ func TestNormalizeURL(t *testing.T) {
 		{"https://example.com/a", "https://example.com/a"},
 		{"http://10.0.0.1/x", "http://10.0.0.1/x"},
 		{"  www.example.com  ", "https://www.example.com"},
+		{"api.x.com/r?to=http://y.com", "https://api.x.com/r?to=http://y.com"},
 	}
 	for _, c := range cases {
 		got, err := normalizeURL(c.in)
@@ -76,6 +77,12 @@ func TestBuildURLWithQuery(t *testing.T) {
 	}
 	if got != "https://api.example.com/p?add=2&keep=1" {
 		t.Errorf("buildURLWithQuery = %q", got)
+	}
+
+	// URL 自带 query 原样保留：顺序稳定、裸 flag 不被改成 flag=
+	got, _ = buildURLWithQuery("https://api.example.com/p?z=1&a=2&flag", nil)
+	if got != "https://api.example.com/p?z=1&a=2&flag" {
+		t.Errorf("buildURLWithQuery raw = %q", got)
 	}
 }
 
@@ -250,8 +257,8 @@ func TestDefaultDownloadName(t *testing.T) {
 		{`attachment; filename="report.pdf"`, "https://x.com/dl", "report.pdf"},
 		{`attachment; filename*=UTF-8''%E4%B8%AD%E6%96%87.pdf`, "https://x.com/dl", "中文.pdf"},
 		{`attachment; filename=evil/../../etc/passwd`, "https://x.com/dl", "passwd"}, // 路径穿越被 basename 挡住
-		{"", "https://x.com/files/video.mp4?dl=1", "video.mp4"},                       // 无 CD 回退 URL 末段
-		{"", "https://x.com/", "download.bin"},                                        // URL 无路径末段
+		{"", "https://x.com/files/video.mp4?dl=1", "video.mp4"},                      // 无 CD 回退 URL 末段
+		{"", "https://x.com/", "download.bin"},                                       // URL 无路径末段
 		{"", "https://x.com", "download.bin"},
 		{"inline", "https://x.com/a.png", "a.png"}, // 有 CD 但无 filename → 回退 URL
 	}

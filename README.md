@@ -73,11 +73,25 @@ task build      # 生产构建，产物在 bin/
   - **Linux**：`libwebkit2gtk-4.1-dev`（或对应发行版包名），见 [Wails 安装文档](https://v3.wails.io/quick-start/installation/)
 - 跨平台交叉编译参考 [Cross-Platform Builds](https://v3.wails.io/guides/build/cross-platform/)
 
+## 命令行 / Agent 调用
+
+`cmd/voltra-cli` 复用 GUI 同一套 Go 发送逻辑（鉴权、超时、编码一致），输出单个 JSON，适合脚本和 AI agent：
+
+```bash
+go build -o bin/voltra-cli ./cmd/voltra-cli
+voltra-cli send -H 'Authorization: Bearer xxx' -d '{"a":1}' https://httpbin.org/post
+voltra-cli example | voltra-cli send --json -   # 完整 HTTPRequest JSON（digest / oauth1 / awsV4 / form-data …）
+voltra-cli send --body https://example.com/file.bin > file.bin
+```
+
+退出码：`0` 拿到响应（看 `statusCode`），`1` 请求失败（看 `errorKind`），`2` 用法错误。`voltra-cli --help` 查看全部参数。
+不支持 `{{变量}}` 和集合继承（这部分在前端解析），传进来的必须是最终值。
+
 ## 测试
 
 ```bash
 # Go 侧（仓库根）
-go build . ./services && go vet . ./services && go test ./services/...
+go build . ./services && go vet . ./services && go test ./services/... ./cmd/...
 
 # 前端（frontend/）
 npm run build   # vue-tsc 类型检查 + vite build

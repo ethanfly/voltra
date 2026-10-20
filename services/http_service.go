@@ -109,9 +109,9 @@ type HTTPRequest struct {
 	FormData              []FormField  `json:"formData"`
 	BinaryPath            string       `json:"binaryPath"`
 	GraphQL               *GraphQLBody `json:"graphql"`
-	TimeoutMs             int          `json:"timeoutMs"`             // 0 → 30000
-	FollowRedirects       bool         `json:"followRedirects"`       // 默认 true（0 值语义由前端保证传 true）
-	MaxRedirects          int          `json:"maxRedirects"`          // 0 → 10
+	TimeoutMs             int          `json:"timeoutMs"`       // 0 → 30000
+	FollowRedirects       bool         `json:"followRedirects"` // 默认 true（0 值语义由前端保证传 true）
+	MaxRedirects          int          `json:"maxRedirects"`    // 0 → 10
 	InsecureSkipTlsVerify bool         `json:"insecureSkipTlsVerify"`
 	SendCookies           bool         `json:"sendCookies"` // false → 不挂 CookieJar
 
@@ -175,6 +175,10 @@ func applyHeaders(httpReq *http.Request, headers []KVPair, contentTypeHint strin
 func materializeBody(r io.Reader) ([]byte, error) {
 	if r == nil {
 		return nil, nil
+	}
+	// binary body 是 *os.File，读完后原 reader 被替换掉，必须在这里关，否则句柄泄漏（Windows 上文件被锁）
+	if c, ok := r.(io.Closer); ok {
+		defer c.Close()
 	}
 	b, err := io.ReadAll(io.LimitReader(r, maxBodyBytes+1))
 	if err != nil {
@@ -246,24 +250,23 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 	// httptrace 采集 DNS / TCP / TLS / TTFB / 下载 各阶段耗时
 	tt := &traceTimer{}
 	trace := &httptrace.ClientTrace{
-		DNSStart:            func(httptrace.DNSStartInfo) { tt.set(&tt.dnsStart) },
-		DNSDone:             func(httptrace.DNSDoneInfo) { tt.set(&tt.dnsDone) },
-		ConnectStart:        func(string, string) { tt.set(&tt.connStart) },
-		ConnectDone:         func(string, string, error) { tt.set(&tt.connDone) },
-		TLSHandshakeStart:   func() { tt.set(&tt.tlsStart) },
-		TLSHandshakeDone:    func(tls.ConnectionState, error) { tt.set(&tt.tlsDone) },
+		DNSStart:             func(httptrace.DNSStartInfo) { tt.set(&tt.dnsStart) },
+		DNSDone:              func(httptrace.DNSDoneInfo) { tt.set(&tt.dnsDone) },
+		ConnectStart:         func(string, string) { tt.set(&tt.connStart) },
+		ConnectDone:          func(string, string, error) { tt.set(&tt.connDone) },
+		TLSHandshakeStart:    func() { tt.set(&tt.tlsStart) },
+		TLSHandshakeDone:     func(tls.ConnectionState, error) { tt.set(&tt.tlsDone) },
 		GotFirstResponseByte: func() { tt.set(&tt.firstByte) },
 	}
 	httpReq = httpReq.WithContext(httptrace.WithClientTrace(ctx, trace))
 
 	resp, err := doAuthedRequest(ctx, client, httpReq, bodyBytes, req)
-	durationMs := time.Since(start).Milliseconds()
-	tt.end()
 	if err != nil {
+		tt.end()
 		return HTTPResponse{
 			Error:      err.Error(),
 			ErrorKind:  classifyError(err),
-			DurationMs: durationMs,
+			DurationMs: time.Since(start).Milliseconds(),
 			Timings:    tt.timings(start),
 		}, nil
 	}
@@ -271,19 +274,20 @@ func (h *HTTPService) SendRequest(ctx context.Context, req HTTPRequest) (HTTPRes
 
 	limited := io.LimitReader(resp.Body, maxBodyBytes+1)
 	bodyBytes, readErr := io.ReadAll(limited)
-	if readErr != nil && !errors.Is(readErr, context.Canceled) {
-		// 连接在读取中中断：把已读到的部分交给前端，同时标记错误
-		if len(bodyBytes) == 0 {
-			return HTTPResponse{
-				Error:      readErr.Error(),
-				ErrorKind:  classifyError(readErr),
-				DurationMs: time.Since(start).Milliseconds(),
-				Timings:    tt.timings(start),
-			}, nil
-		}
+	// 耗时与下载阶段要在读完 body 之后再记，否则 DownloadMs 恒为 0、总耗时只到首字节
+	tt.end()
+	durationMs := time.Since(start).Milliseconds()
+	if readErr != nil && (len(bodyBytes) == 0 || errors.Is(readErr, context.Canceled)) {
+		return HTTPResponse{
+			Error:      readErr.Error(),
+			ErrorKind:  classifyError(readErr),
+			DurationMs: durationMs,
+			Timings:    tt.timings(start),
+		}, nil
 	}
 
-	truncated := len(bodyBytes) > maxBodyBytes
+	// 读取中途断开：保留已读部分并标记截断（不置 Error，否则前端只显示错误卡、看不到部分 body）
+	truncated := len(bodyBytes) > maxBodyBytes || readErr != nil
 	if truncated {
 		bodyBytes = bodyBytes[:maxBodyBytes]
 	}
@@ -350,9 +354,10 @@ func buildClient(req HTTPRequest) *http.Client {
 		}
 	}
 	if req.InsecureSkipTlsVerify {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+		// 克隆默认 Transport：裸 &http.Transport{} 会丢掉系统代理（HTTPS_PROXY）、拨号超时和 HTTP/2
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		client.Transport = tr
 	}
 	return client
 }
@@ -587,7 +592,8 @@ func normalizeURL(raw string) (string, error) {
 	}
 	h := strings.ToLower(host)
 
-	if !strings.Contains(s, "://") {
+	// 只看开头是否有 scheme：api.x.com/r?to=http://y 的 query 里也含 "://"
+	if !hasScheme(s) {
 		scheme := "https"
 		hnp := hostWithoutPort(h) // 判定前去掉端口（localhost:3000 → localhost）
 		if hnp == "localhost" || strings.HasPrefix(hnp, "127.") || hnp == "[::1]" ||
@@ -608,6 +614,19 @@ func normalizeURL(raw string) (string, error) {
 	return u.String(), nil
 }
 
+func hasScheme(s string) bool {
+	i := strings.Index(s, "://")
+	if i <= 0 {
+		return false
+	}
+	for j, c := range s[:i] {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || j > 0 && (c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.')) {
+			return false
+		}
+	}
+	return true
+}
+
 // buildURLWithQuery 把启用的 query 行拼进 URL，key/value 均做百分号编码。
 // 不用 url.Values.Encode()（会按键名排序），保持用户在前端表格里的行序；
 // 行在前，URL 上已有的 query 追加在后（正常路径前端已把 URL query 拆进行，这里只是兜底）
@@ -625,12 +644,9 @@ func buildURLWithQuery(normalized string, query []KVPair) (string, error) {
 		parts = append(parts, url.QueryEscape(kv.Key)+"="+url.QueryEscape(kv.Value))
 	}
 	// URL 上残留的 query 追加在后兜底（正常路径前端已把 URL query 拆进行）
+	// 原样追加：u.Query() 是 map，遍历顺序随机，且会把 ?flag 改写成 flag=
 	if u.RawQuery != "" {
-		for k, vs := range u.Query() {
-			for _, v := range vs {
-				parts = append(parts, url.QueryEscape(k)+"="+url.QueryEscape(v))
-			}
-		}
+		parts = append(parts, u.RawQuery)
 	}
 	u.RawQuery = strings.Join(parts, "&")
 	return u.String(), nil
@@ -698,7 +714,7 @@ func buildBody(req HTTPRequest) (io.Reader, string, error) {
 				if err != nil {
 					return nil, "", fmt.Errorf("无法读取文件 %s: %v", f.FilePath, err)
 				}
-				fw, err := mw.CreateFormFile(f.Key, filepathBase(f.FilePath))
+				fw, err := mw.CreateFormFile(f.Key, filepath.Base(f.FilePath))
 				if err != nil {
 					src.Close()
 					return nil, "", err
@@ -778,7 +794,8 @@ func classifyError(err error) string {
 	}
 	var opErr *net.OpError
 	if errors.As(err, &opErr) {
-		if errors.Is(opErr.Err, syscall.ECONNREFUSED) {
+		// Windows 上是 WSAECONNREFUSED(10061)，不等于 syscall.ECONNREFUSED
+		if errors.Is(opErr.Err, syscall.ECONNREFUSED) || errors.Is(opErr.Err, syscall.Errno(10061)) {
 			return "refused"
 		}
 	}
@@ -800,13 +817,6 @@ func isTextLike(contentType string, body []byte) bool {
 	default:
 		return false
 	}
-}
-
-func filepathBase(p string) string {
-	if i := strings.LastIndexByte(p, '/'); i >= 0 {
-		return p[i+1:]
-	}
-	return p
 }
 
 // traceTimer 线程安全地记录 httptrace 各阶段时间点

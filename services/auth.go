@@ -321,17 +321,21 @@ func signOAuth1(req *http.Request, o *AuthOAuth1, bodyBytes []byte, now time.Tim
 	if o.Token != "" {
 		params.Set("oauth_token", o.Token)
 	}
-	if o.Realm != "" {
-		params.Set("oauth_realm", o.Realm)
-	}
+	// realm 不参与签名（RFC 5849 §3.4.1.3.1），只写在头里
 
 	base := oauth1BaseString(req.Method, baseURI, params)
 	sig := oauth1Signature(base, o.ConsumerSecret, o.TokenSecret, sigMethod)
-	params.Set("oauth_signature", sig)
 
-	// oauth_* 追加进 URL query（url.Values.Encode 会排序，用户原 query 顺序变化不影响签名正确性）
-	u.RawQuery = params.Encode()
-	req.Header.Set("Authorization", formatOAuthHeader(o.Realm, params))
+	// 只用 Authorization 头传协议参数：不改 URL（旧实现把 urlencoded body 参数也写进了 query，
+	// 且头和 query 双份协议参数，部分服务端会拒绝）
+	oauth := url.Values{}
+	for k, vs := range params {
+		if strings.HasPrefix(k, "oauth_") {
+			oauth[k] = vs
+		}
+	}
+	oauth.Set("oauth_signature", sig)
+	req.Header.Set("Authorization", formatOAuthHeader(o.Realm, oauth))
 	return nil
 }
 
