@@ -87,6 +87,19 @@ voltra-cli send --body https://example.com/file.bin > file.bin
 退出码：`0` 拿到响应（看 `statusCode`），`1` 请求失败（看 `errorKind`），`2` 用法错误。`voltra-cli --help` 查看全部参数。
 不支持 `{{变量}}` 和集合继承（这部分在前端解析），传进来的必须是最终值。
 
+项目管理与 API 文档（直接读写 GUI 的 `projects.json`；写操作请先关闭 GUI，否则会被 GUI 内存数据覆盖）：
+
+```bash
+voltra-cli project list                      # JSON 数组：id / name / collections / requests
+voltra-cli project create 'My API'
+voltra-cli project show <id|名称>             # 完整项目 JSON
+voltra-cli project rename <id|名称> 新名称
+voltra-cli project delete --yes <id|名称>
+voltra-cli doc -o api.md <id|名称>           # 生成 Markdown API 文档（不写 -o 输出到 stdout）
+```
+
+文档按集合 / 文件夹分节，含方法、URL、继承后的鉴权与公共 Header、Query、Body 示例和已保存的响应示例；密钥类变量与鉴权凭据不会写进文档。`--data-dir` 可指定数据目录。
+
 ## 测试
 
 ```bash

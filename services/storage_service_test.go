@@ -9,7 +9,7 @@ import (
 
 func newTestStorage(t *testing.T) *StorageService {
 	t.Helper()
-	s, err := newStorageServiceIn(t.TempDir())
+	s, err := NewStorageServiceIn(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

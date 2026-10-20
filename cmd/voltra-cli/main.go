@@ -1,7 +1,7 @@
 // voltra-cli：无界面发请求，复用 GUI 同一套 services.HTTPService（鉴权 / 超时 / 编码行为完全一致）。
 // 面向脚本与 AI agent：输入是 flag 或 JSON，输出是单个 JSON 对象，退出码稳定。
 //
-// shortcut: 变量替换 / 集合继承 / Bearer 等注入在前端 TS 里，CLI 收到的是最终值；要跑已保存的集合请求需把 send.ts 的解析移到 Go 侧再做。
+// shortcut: send 的变量替换 / 集合继承 / Bearer 等注入在前端 TS 里，CLI 收到的是最终值；要跑已保存的集合请求需把 send.ts 的解析移到 Go 侧再做。
 package main
 
 import (
@@ -25,6 +25,22 @@ const usage = `voltra-cli — Voltra 命令行（对 agent 友好：JSON 输出 
   voltra-cli send [flags] <url>       用 flag 描述请求（flag 必须写在 url 前）
   voltra-cli send --json <file|->     用 HTTPRequest JSON 描述请求（- 表示 stdin），可用全部字段（digest/oauth1/awsV4/formData…）
   voltra-cli example                  打印一份 HTTPRequest JSON 样例
+  voltra-cli project list|show|create|rename|delete   管理 GUI 同一份项目数据（projects.json）
+  voltra-cli doc [-o file.md] <项目 id|名称>        生成项目 Markdown API 文档（无 -o 时输出到 stdout）
+
+project 子命令（输出均为 JSON；flag 写在参数前）:
+  project list                        [{id,name,collections,requests,updatedAt}]
+  project show <id|名称>              项目完整 JSON
+  project create <名称>               新建空项目
+  project rename <id|名称> <新名称>
+  project delete --yes <id|名称>      不可恢复，必须加 --yes
+  通用 flag: --data-dir <dir>         指定数据目录（默认 GUI 的用户配置目录/voltra）
+  注意: GUI 运行时会用内存数据覆盖 projects.json，写操作请在 GUI 关闭时执行
+
+doc flags:
+  -o <file>         写入文件，stdout 输出 {path,project,requests}
+  --data-dir <dir>  同上
+  文档中 {{变量}} 原样保留；secret 变量与写死的 Authorization/Cookie/X-Api-Key 值以 ****** 代替
 
 send flags:
   -X <method>       请求方法，默认 GET（有 -d 时默认 POST）
@@ -80,6 +96,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	case "send":
 		return send(args[1:], stdin, stdout, stderr)
+	case "project":
+		return projectCmd(args[1:], stdout, stderr)
+	case "doc":
+		return docCmd(args[1:], stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "未知命令 %q，运行 voltra-cli --help 查看用法\n", args[0])
 	return 2

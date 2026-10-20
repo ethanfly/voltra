@@ -32,11 +32,11 @@ func NewStorageService() (*StorageService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("获取用户配置目录失败: %w", err)
 	}
-	return newStorageServiceIn(filepath.Join(configDir, "voltra"))
+	return NewStorageServiceIn(filepath.Join(configDir, "voltra"))
 }
 
-// newStorageServiceIn 供单元测试注入临时目录
-func newStorageServiceIn(dir string) (*StorageService, error) {
+// NewStorageServiceIn 用指定数据目录（单测临时目录 / voltra-cli --data-dir）
+func NewStorageServiceIn(dir string) (*StorageService, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("创建数据目录失败: %w", err)
 	}
